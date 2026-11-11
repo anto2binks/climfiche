@@ -8,6 +8,8 @@ import {
   siretValide, emailValide, chiffres, nomComplet, QUALITE_DEFAUT,
   codeDisponible, creerVerrou, verifierCode, fichierExport, lireImport,
 } from './profil.js';
+import { PaveSignature } from './signature.js';
+import { initBon } from './bon-ui.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -19,6 +21,7 @@ const CLE_REGLAGES = 'frigofiche.reglages';
 const CLE_COMPTEUR = 'frigofiche.compteur';
 const CHAMPS_OPERATEUR = ['raisonSociale', 'adresseOperateur', 'siret', 'attestation', 'technicien', 'qualiteTechnicien'];
 const CHAMPS_PROFIL = ['raisonSociale', 'adresse', 'siret', 'attestation', 'prenom', 'nom', 'qualite', 'email'];
+const VERSION_APP = '1.6 (11/11/2026)';
 const RE_VERROUILLAGE_MS = 5 * 60 * 1000; // re-verrouille après 5 min en arrière-plan
 const TITRES = ['Opérateur', 'Client et machine', 'Fluide', 'Contrôle et manipulation', 'Signatures', 'Vérification', 'Fiche prête'];
 const NB_ETAPES = 5;
@@ -74,84 +77,6 @@ function creerOptions(conteneur, nom, valeurs, type = 'radio') {
 creerOptions($('#choix-fluide'), 'fluide', Object.keys(FLUIDES).map((f) => [f, f]));
 creerOptions($('#choix-nature'), 'nature', Object.entries(NATURES), 'checkbox');
 
-// ---------- Pavé de signature ----------
-// Épaisseur du trait proportionnelle à la largeur du canevas (et non à l'écran) :
-// 0,9 % de la largeur, soit environ 3 px sur un canevas de 340 px.
-const EPAISSEUR_RELATIVE = 0.009;
-class PaveSignature {
-  constructor(canvas) {
-    this.canvas = canvas;
-    this.traits = [];
-    this.trait = null;
-    canvas.addEventListener('pointerdown', (e) => this.debut(e));
-    canvas.addEventListener('pointermove', (e) => this.deplacer(e));
-    ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => canvas.addEventListener(t, () => { this.trait = null; }));
-    new ResizeObserver(() => this.redimensionner()).observe(canvas);
-  }
-  point(e) {
-    const r = this.canvas.getBoundingClientRect();
-    return [e.clientX - r.left, e.clientY - r.top];
-  }
-  debut(e) {
-    e.preventDefault();
-    this.canvas.setPointerCapture?.(e.pointerId);
-    this.trait = [this.point(e)];
-    this.traits.push(this.trait);
-    this.dessiner();
-  }
-  deplacer(e) {
-    if (!this.trait) return;
-    e.preventDefault();
-    const evts = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-    for (const ev of evts) this.trait.push(this.point(ev));
-    this.dessiner();
-  }
-  redimensionner() {
-    const r = this.canvas.getBoundingClientRect();
-    if (!r.width) return;
-    const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = Math.round(r.width * dpr);
-    this.canvas.height = Math.round(r.height * dpr);
-    this.dessiner();
-  }
-  get epaisseur() { return this.canvas.getBoundingClientRect().width * EPAISSEUR_RELATIVE || 3; }
-  static tracer(ctx, traits, echelle, epaisseur, dx = 0, dy = 0) {
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#0a2a6b'; ctx.fillStyle = '#0a2a6b';
-    ctx.lineWidth = epaisseur * echelle;
-    for (const t of traits) {
-      ctx.beginPath();
-      if (t.length === 1) { ctx.arc((t[0][0] - dx) * echelle, (t[0][1] - dy) * echelle, (epaisseur / 2) * echelle, 0, 7); ctx.fill(); continue; }
-      t.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, (x - dx) * echelle, (y - dy) * echelle));
-      ctx.stroke();
-    }
-  }
-  dessiner() {
-    const ctx = this.canvas.getContext('2d');
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    PaveSignature.tracer(ctx, this.traits, this.canvas.width / (this.canvas.getBoundingClientRect().width || 1), this.epaisseur);
-  }
-  get vide() { return this.traits.length === 0; }
-  effacer() { this.traits = []; this.dessiner(); }
-  /** Tracé pour le PDF : copie des traits (coordonnées du canevas). */
-  trace() {
-    return this.vide ? null : { traits: this.traits.map((t) => t.map((p) => [p[0], p[1]])) };
-  }
-  /** Aperçu PNG recadré sur l'encre (récapitulatif). */
-  png() {
-    if (this.vide) return null;
-    const pts = this.traits.flat();
-    const marge = this.epaisseur;
-    const x0 = Math.min(...pts.map((p) => p[0])) - marge, y0 = Math.min(...pts.map((p) => p[1])) - marge;
-    const x1 = Math.max(...pts.map((p) => p[0])) + marge, y1 = Math.max(...pts.map((p) => p[1])) + marge;
-    const echelle = 3;
-    const c = document.createElement('canvas');
-    c.width = Math.max(1, Math.ceil((x1 - x0) * echelle));
-    c.height = Math.max(1, Math.ceil((y1 - y0) * echelle));
-    PaveSignature.tracer(c.getContext('2d'), this.traits, echelle, this.epaisseur, x0, y0);
-    return c.toDataURL('image/png');
-  }
-}
 const pads = { 'sig-tech': new PaveSignature($('#sig-tech')), 'sig-client': new PaveSignature($('#sig-client')) };
 $$('[data-effacer]').forEach((b) => b.addEventListener('click', () => pads[b.dataset.effacer].effacer()));
 
@@ -459,17 +384,55 @@ $('#btn-copier-email').addEventListener('click', async (e) => {
 
 // ---------- Navigation ----------
 // Écrans : 'verrou', 'accueil', 'profil', puis les étapes 1 à 7 de la fiche.
+// Onglets : « Fiche Cerfa » (accueil + étapes 1 à 7), « Bon d'intervention » (écrans bon-*), « Mon profil ».
+const ongletDe = (n) => (n === 'profil' ? 'profil' : bon.estEcran(n) ? 'bon' : n === 'verrou' ? null : 'cerfa');
+const ACCUEIL_ONGLET = { cerfa: 'accueil', bon: 'bon-accueil', profil: 'profil' };
+const dernierEcran = { ...ACCUEIL_ONGLET };
+function majOnglets(n) {
+  const onglet = ongletDe(n);
+  const visibles = !!profil && n !== 'verrou';
+  $('#onglets').hidden = !visibles;
+  document.body.classList.toggle('avec-onglets', visibles);
+  if (onglet) dernierEcran[onglet] = n;
+  $$('#onglets [data-onglet]').forEach((b) => {
+    const actif = b.dataset.onglet === onglet;
+    b.classList.toggle('actif', actif);
+    b.setAttribute('aria-current', actif ? 'page' : 'false');
+  });
+  $('#mention-cerfa').textContent = onglet === 'bon' ? "Bon d'intervention" : onglet === 'profil' ? 'Mon profil' : 'Cerfa 15497*04';
+}
+$$('#onglets [data-onglet]').forEach((b) => b.addEventListener('click', () => {
+  const o = b.dataset.onglet;
+  // Un second appui sur l'onglet déjà ouvert ramène à son écran d'accueil.
+  allerA(ongletDe(etape) === o ? ACCUEIL_ONGLET[o] : dernierEcran[o]);
+}));
+
 function allerA(n) {
   etape = n;
   const fiche = typeof n === 'number';
+  const ecranBon = bon.estEcran(n);
   $$('.ecran').forEach((s) => { s.hidden = (s.dataset.etape ? Number(s.dataset.etape) : s.dataset.ecran) !== n; });
   $('#erreur').hidden = true;
   $('#progression').hidden = !fiche;
-  $('#btn-accueil').hidden = n === 'accueil' || n === 'verrou' || (n === 'profil' && !profil);
-  $('#mention-cerfa').hidden = !$('#btn-accueil').hidden;
+  $('#btn-accueil').hidden = true; // remplacé par la barre d'onglets
+  majOnglets(n);
   const nav = $('#navigation');
   nav.hidden = !fiche || n === 7;
   document.body.classList.toggle('sans-navigation', nav.hidden);
+  if (ecranBon) {
+    bon.surAffichage(n).then((r) => {
+      if (etape !== n) return;
+      nav.hidden = !r.nav;
+      document.body.classList.toggle('sans-navigation', nav.hidden);
+      $('#progression').hidden = !r.nav;
+      if (r.nav) {
+        $('#etape-texte').textContent = r.progression;
+        $('#barre-remplie').style.width = `${r.pct}%`;
+        $('#btn-suivant').textContent = r.suivant;
+        $('#btn-retour').textContent = r.retour;
+      }
+    });
+  }
   if (fiche) {
     if (n <= 6) ficheEnCours = n;
     // L'opérateur vient du profil : la fiche commence à « Client et machine » (étape 1 sur 4).
@@ -488,11 +451,15 @@ function allerA(n) {
   if (n === 'profil') majProfil();
   window.scrollTo({ top: 0 });
 }
-$('#btn-suivant').addEventListener('click', () => {
+$('#btn-suivant').addEventListener('click', (e) => {
+  if (bon.estEcran(etape)) return bon.suivant(etape, e.currentTarget);
   if (etape === 6) return generer();
   if (valider(etape)) allerA(etape + 1);
 });
-$('#btn-retour').addEventListener('click', () => allerA(etape === 2 ? 'accueil' : Math.max(1, etape - 1)));
+$('#btn-retour').addEventListener('click', () => {
+  if (bon.estEcran(etape)) return bon.retour(etape);
+  allerA(etape === 2 ? 'accueil' : Math.max(1, etape - 1));
+});
 $('#btn-accueil').addEventListener('click', () => allerA('accueil'));
 
 /** Remplit la rubrique [1] et le signataire opérateur avec le profil. */
@@ -555,6 +522,7 @@ function profilDepuisAnciennesDonnees() {
 }
 function majProfil() {
   const creation = !profil;
+  $('#version-app').textContent = `FrigoFiche version ${VERSION_APP}`;
   $('#profil-titre').textContent = creation ? 'Crée ton profil' : 'Mon profil';
   $('#profil-intro').textContent = creation
     ? "Ces informations rempliront automatiquement chaque fiche. Tu ne les saisis qu'une fois."
@@ -567,6 +535,7 @@ function majProfil() {
   remplirFormulaireProfil(profil || profilDepuisAnciennesDonnees());
   if (!creation) {
     champ('premiereCase7').checked = !!profil.reglages?.premiereCase7;
+    majLogo();
     majEtatCode();
   }
 }
@@ -741,6 +710,67 @@ document.addEventListener('visibilitychange', () => {
   if (profil?.verrou && cacheLe && Date.now() - cacheLe > RE_VERROUILLAGE_MS && etape !== 'verrou') verrouiller();
 });
 
+// ---------- Bon d'intervention ----------
+function telechargerFichier(file, url) {
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = file.name;
+  document.body.append(lien);
+  lien.click();
+  lien.remove();
+}
+async function partagerOuTelecharger(file, texte, url) {
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: file.name, text: texte }); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  telechargerFichier(file, url);
+}
+const bon = initBon({
+  allerA: (e) => allerA(e),
+  profil: () => profil,
+  nomComplet,
+  partagerOuTelecharger,
+  telecharger: telechargerFichier,
+});
+
+// ---------- Logo de la société (Mon profil) ----------
+async function reduireLogo(fichier, max = 500) {
+  const url = URL.createObjectURL(fichier);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.naturalWidth * k));
+    c.height = Math.max(1, Math.round(img.naturalHeight * k));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/png'); // PNG : garde la transparence
+  } finally { URL.revokeObjectURL(url); }
+}
+function majLogo() {
+  const logo = profil?.logo;
+  $('#apercu-logo').hidden = !logo;
+  if (logo) $('#img-logo').src = logo;
+  $('#btn-supprimer-logo').hidden = !logo;
+  $('#btn-choisir-logo').textContent = logo ? '🖼️ Changer de logo' : '🖼️ Choisir un logo';
+}
+$('#btn-choisir-logo').addEventListener('click', () => { $('#fichier-logo').value = ''; $('#fichier-logo').click(); });
+$('#fichier-logo').addEventListener('change', async (e) => {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  try {
+    profil = await enregistrerProfil({ ...profil, logo: await reduireLogo(f) });
+    majLogo();
+    montrerMessageProfil('✅ Logo enregistré.', false, '#message-logo');
+  } catch (ex) { montrerMessageProfil(`Logo non enregistré : ${ex.message}`, true, '#message-logo'); }
+});
+$('#btn-supprimer-logo').addEventListener('click', async () => {
+  profil = await enregistrerProfil({ ...profil, logo: '' });
+  majLogo();
+  montrerMessageProfil('Logo supprimé.', false, '#message-logo');
+});
+
 // ---------- Démarrage ----------
 async function demarrer() {
   profil = await chargerProfil();
@@ -750,6 +780,23 @@ async function demarrer() {
 }
 demarrer();
 
+// ---------- Mises à jour de l'application ----------
+// Le service worker revérifie les fichiers à chaque ouverture. Quand une nouvelle version
+// est installée, l'appli se recharge (ou propose de le faire si une fiche est en cours).
+// Le profil n'est jamais touché par une mise à jour.
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  const avaitControleur = !!navigator.serviceWorker.controller;
+  let rechargement = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!avaitControleur || rechargement) return;
+    const ficheOuverte = (typeof etape === 'number' && etape < 7)
+      || (bon.estEcran(etape) && !['bon-accueil', 'bon-pret'].includes(etape));
+    if (!ficheOuverte) { rechargement = true; location.reload(); return; }
+    $('#bandeau-maj').hidden = false;
+  });
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    // L'appli installée est souvent « réveillée » sans être rechargée : on vérifie à chaque retour.
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => {});
 }
+$('#btn-maj').addEventListener('click', () => location.reload());
