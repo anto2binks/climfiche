@@ -32,7 +32,6 @@ const bon = {
   },
   technicien: { nom: 'Karim Dahmani', qualite: 'Technicien frigoriste' },
   client: { nom: 'Fitness Park Lyon Gerland', adresse: '60 avenue Tony Garnier\n69007 Lyon', contact: 'M. Laurent (responsable du site)' },
-  equipement: { type: 'Split mural', marque: 'Daikin', modele: 'FTXM50R / RXM50R', serie: 'J012345' },
   natures: ['Dépannage', 'Remplacement de pièce', 'Entretien'],
   natureDetail: 'Ventilateur extérieur hors service (code E7)',
   description,

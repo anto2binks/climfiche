@@ -331,25 +331,8 @@
         <input name="b_contact" autocapitalize="words" placeholder="ex. M. Martin, gardien"></label>
     </section>
 
-    <section class="ecran" data-ecran="bon-2" hidden>
-      <h2><span class="num">2</span> Équipement</h2>
-      <fieldset>
-        <legend>Type d'équipement</legend>
-        <div class="choix grille" id="choix-type-equipement"></div>
-      </fieldset>
-      <label id="bloc-type-autre" hidden>Préciser le type
-        <input name="b_typeAutre"></label>
-      <label>Marque
-        <input name="b_marque" list="liste-marques" autocomplete="off"></label>
-      <datalist id="liste-marques"></datalist>
-      <label>Modèle
-        <input name="b_modele" autocomplete="off"></label>
-      <label>N° de série <span class="facultatif">facultatif</span>
-        <input name="b_serie" autocomplete="off" autocapitalize="characters"></label>
-    </section>
-
     <section class="ecran" data-ecran="bon-3" hidden>
-      <h2><span class="num">3</span> Nature de l'opération</h2>
+      <h2><span class="num">2</span> Nature de l'opération</h2>
       <fieldset>
         <legend>Une ou plusieurs</legend>
         <div class="choix" id="choix-nature-bon"></div>
@@ -359,7 +342,7 @@
     </section>
 
     <section class="ecran" data-ecran="bon-4" hidden>
-      <h2><span class="num">4</span> Travaux réalisés</h2>
+      <h2><span class="num">3</span> Travaux réalisés</h2>
       <p class="aide">🎤 Astuce : touche le micro du clavier pour dicter au lieu d'écrire.</p>
       <label>Description détaillée
         <textarea name="b_description" class="grande-zone" rows="12" autocapitalize="sentences" spellcheck="true"
@@ -367,7 +350,7 @@
     </section>
 
     <section class="ecran" data-ecran="bon-5" hidden>
-      <h2><span class="num">5</span> Pièces remplacées</h2>
+      <h2><span class="num">4</span> Pièces remplacées</h2>
       <p class="aide">Laisse vide si aucune pièce n'a été changée.</p>
       <div id="liste-pieces"></div>
       <button type="button" class="bouton" id="btn-ajout-piece">➕ Ajouter une pièce</button>
@@ -376,7 +359,7 @@
     </section>
 
     <section class="ecran" data-ecran="bon-6" hidden>
-      <h2><span class="num">6</span> Temps passé</h2>
+      <h2><span class="num">5</span> Temps passé</h2>
       <div class="choix duo">
         <label class="option"><input type="radio" name="b_modeTemps" value="heures" checked><span>Arrivée / départ</span></label>
         <label class="option"><input type="radio" name="b_modeTemps" value="duree"><span>Durée</span></label>
@@ -403,14 +386,14 @@
     </section>
 
     <section class="ecran" data-ecran="bon-7" hidden>
-      <h2><span class="num">7</span> Observations et suite à donner</h2>
+      <h2><span class="num">6</span> Observations et suite à donner</h2>
       <p class="aide">🎤 Le micro du clavier fonctionne ici aussi.</p>
       <label>Travaux à prévoir, remarques <span class="facultatif">facultatif</span>
         <textarea name="b_observations" rows="6" autocapitalize="sentences" spellcheck="true"></textarea></label>
     </section>
 
     <section class="ecran" data-ecran="bon-8" hidden>
-      <h2><span class="num">8</span> Photos <span class="facultatif">facultatif</span></h2>
+      <h2><span class="num">7</span> Photos <span class="facultatif">facultatif</span></h2>
       <p class="aide">Jusqu'à 4 photos, réduites automatiquement pour un PDF léger.</p>
       <div class="grille-photos" id="grille-photos"></div>
       <button type="button" class="bouton" id="btn-ajout-photo">📷 Ajouter une photo</button>
@@ -419,7 +402,7 @@
     </section>
 
     <section class="ecran" data-ecran="bon-9" hidden>
-      <h2><span class="num">9</span> Signatures</h2>
+      <h2><span class="num">8</span> Signatures</h2>
       <div class="signature">
         <div class="signature-titre"><strong>Technicien</strong></div>
         <label>Nom

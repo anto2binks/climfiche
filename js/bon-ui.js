@@ -1,6 +1,6 @@
 // FrigoFiche — écrans du « Bon d'intervention ». Indépendant de la fiche Cerfa.
 import {
-  TYPES_EQUIPEMENT, NATURES_BON, MARQUES, dureeEntre, texteDuree, euros,
+  NATURES_BON, dureeEntre, texteDuree, euros,
   prochainNumeroBon, memoriserNumeroBon, lireClients, enregistrerClient, supprimerClient, filtrerClients,
 } from './bon.js';
 import { genererBon } from './bon-pdf.js';
@@ -15,8 +15,10 @@ const radio = (nom) => document.querySelector(`[name="${nom}"]:checked`)?.value 
 const coches = (nom) => $$(`[name="${nom}"]:checked`).map((el) => el.value);
 const nombre = (v) => { const s = String(v ?? '').trim().replace(/\s/g, '').replace(',', '.'); return s === '' ? NaN : Number(s); };
 
-export const ETAPES_BON = 9;
-const TITRES = ['Client', 'Équipement', "Nature de l'opération", 'Travaux réalisés', 'Pièces remplacées', 'Temps passé', 'Observations', 'Photos', 'Signatures'];
+// Ordre des écrans du bon (l'ancien écran « Équipement », bon-2, a été retiré).
+const ORDRE = ['bon-1', 'bon-3', 'bon-4', 'bon-5', 'bon-6', 'bon-7', 'bon-8', 'bon-9'];
+export const ETAPES_BON = ORDRE.length;
+const TITRES = ['Client', "Nature de l'opération", 'Travaux réalisés', 'Pièces remplacées', 'Temps passé', 'Observations', 'Photos', 'Signatures'];
 const MAX_PHOTOS = 4;
 
 /**
@@ -45,9 +47,7 @@ export function initBon(ctx) {
       conteneur.append(l);
     }
   };
-  creer($('#choix-type-equipement'), 'b_type', TYPES_EQUIPEMENT.map((t) => [t, t]), 'radio');
   creer($('#choix-nature-bon'), 'b_nature', Object.entries(NATURES_BON), 'checkbox');
-  $('#liste-marques').innerHTML = MARQUES.map((m) => `<option value="${m}">`).join('');
 
   const pads = { tech: new PaveSignature($('#sig-bon-tech')), client: new PaveSignature($('#sig-bon-client')) };
   $$('[data-effacer-bon]').forEach((b) => b.addEventListener('click', () => pads[b.dataset.effacerBon].effacer()));
@@ -98,7 +98,6 @@ export function initBon(ctx) {
 
   // ---------- Équipement / nature ----------
   document.addEventListener('change', (e) => {
-    if (e.target.name === 'b_type') $('#bloc-type-autre').hidden = e.target.value !== 'Autre';
     if (e.target.name === 'b_nature') $('#mention-preciser').textContent = coches('b_nature').includes('autre') ? 'obligatoire pour « Autre »' : 'facultatif';
     if (e.target.name === 'b_modeTemps') majTemps();
     if (e.target.name === 'b_afficherPrix') rendrePieces();
@@ -226,45 +225,16 @@ export function initBon(ctx) {
     fautes[0][0]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return false;
   }
-  function valider(n) {
-    const f = [];
-    const requis = (nom, msg) => { if (!val(nom)) f.push([champ(nom), msg]); };
-    if (n === 1) { requis('b_client', 'Indique le nom du client.'); requis('b_adresse', "Indique l'adresse d'intervention."); }
-    if (n === 2) {
-      if (!radio('b_type')) f.push([champ('b_type').closest('fieldset'), "Choisis le type d'équipement."]);
-      if (radio('b_type') === 'Autre') requis('b_typeAutre', "Précise le type d'équipement.");
-      requis('b_marque', 'Indique la marque.');
-      requis('b_modele', 'Indique le modèle.');
-    }
-    if (n === 3) {
-      if (!coches('b_nature').length) f.push([champ('b_nature').closest('fieldset'), "Choisis au moins une nature d'opération."]);
-      if (coches('b_nature').includes('autre')) requis('b_natureDetail', 'Précise la nature « Autre ».');
-    }
-    if (n === 4) requis('b_description', 'Décris les travaux réalisés.');
-    if (n === 5) {
-      pieces.forEach((p, i) => {
-        const vide = !p.designation.trim() && !p.reference.trim() && !p.prix.trim();
-        if (vide) return;
-        const inp = (c) => $(`#liste-pieces [data-i="${i}"][data-c="${c}"]`);
-        if (!p.designation.trim()) f.push([inp('designation'), `Pièce ${i + 1} : indique la désignation.`]);
-        if (!(nombre(p.quantite) > 0)) f.push([inp('quantite'), `Pièce ${i + 1} : quantité invalide.`]);
-        if (p.prix.trim() && !(nombre(p.prix) >= 0)) f.push([inp('prix'), `Pièce ${i + 1} : prix invalide (ex. 12,50).`]);
-      });
-    }
-    if (n === 6) {
-      if (radio('b_modeTemps') === 'duree') {
-        if (!(dureeMinutes() > 0)) f.push([champ('b_dureeH'), 'Indique la durée.']);
-      } else {
-        requis('b_arrivee', "Indique l'heure d'arrivée.");
-        requis('b_depart', "Indique l'heure de départ.");
-      }
-    }
-    if (n === 9) {
-      requis('b_techNom', 'Indique le nom du technicien.');
-      if (pads.tech.vide) f.push([$('#sig-bon-tech'), 'La signature du technicien est requise.']);
-      if (!pads.client.vide) requis('b_signataire', 'Indique le nom du signataire client.');
-    }
-    return signaler(f);
+  // Aucun écran n'est bloquant : les oublis sont seulement signalés au récapitulatif.
+  function oublis() {
+    const o = [];
+    if (!val('b_client')) o.push(['bon-1', 'Nom du client']);
+    if (!val('b_adresse')) o.push(['bon-1', "Adresse d'intervention"]);
+    if (!coches('b_nature').length) o.push(['bon-3', "Nature de l'opération"]);
+    if (!val('b_description')) o.push(['bon-4', 'Description des travaux']);
+    if (!(dureeMinutes() >= 0)) o.push(['bon-6', 'Temps passé']);
+    if (pads.tech.vide) o.push(['bon-9', 'Signature du technicien']);
+    return o;
   }
 
   // ---------- Données du bon ----------
@@ -278,10 +248,6 @@ export function initBon(ctx) {
       societe: { raisonSociale: p.raisonSociale, adresse: p.adresse, siret: p.siret, logo: p.logo || null },
       technicien: { nom: val('b_techNom'), qualite: val('b_techQualite') },
       client: { nom: val('b_client'), adresse: val('b_adresse'), contact: val('b_contact') },
-      equipement: {
-        type: radio('b_type') === 'Autre' ? (val('b_typeAutre') || 'Autre') : radio('b_type'),
-        marque: val('b_marque'), modele: val('b_modele'), serie: val('b_serie'),
-      },
       natures,
       natureDetail: val('b_natureDetail'),
       description: champ('b_description').value.trim(),
@@ -305,13 +271,12 @@ export function initBon(ctx) {
     const sigT = pads.tech.png(), sigC = pads.client.png();
     const blocs = [
       ['bon-1', 'Client', [['Client', b.client.nom], ['Adresse', b.client.adresse], ['Sur place', b.client.contact || '—']]],
-      ['bon-2', 'Équipement', [['Type', b.equipement.type], ['Marque', b.equipement.marque], ['Modèle', b.equipement.modele], ['N° de série', b.equipement.serie || '—']]],
       ['bon-3', 'Nature', [['Opération', b.natures.join(', ')], ['Précisions', b.natureDetail || '—']]],
       ['bon-4', 'Travaux réalisés', [['Description', b.description]]],
       ['bon-5', 'Pièces', b.pieces.length
         ? b.pieces.map((x, i) => [`Pièce ${i + 1}`, `${x.designation}${x.reference ? ` (${x.reference})` : ''} × ${String(x.quantite).replace('.', ',')}${b.afficherPrix && x.prixUnitaire !== null ? ` — ${euros(x.prixUnitaire)}` : ''}`])
         : [['Pièces', 'Aucune']]],
-      ['bon-6', 'Temps passé', [['Horaires', b.temps.arrivee ? `${b.temps.arrivee} → ${b.temps.depart}` : 'Durée saisie'], ['Durée', texteDuree(b.temps.dureeMin)], ['Déplacement', b.deplacement || '—']]],
+      ['bon-6', 'Temps passé', [['Horaires', b.temps.arrivee || b.temps.depart ? `${b.temps.arrivee || '?'} → ${b.temps.depart || '?'}` : '—'], ['Durée', texteDuree(b.temps.dureeMin) || '—'], ['Déplacement', b.deplacement || '—']]],
       ['bon-7', 'Observations', [['Suite à donner', b.observations || '—']]],
       ['bon-8', 'Photos', [['Photos', photos.length ? `${photos.length} photo(s)` : 'Aucune']]],
       ['bon-9', 'Signatures', [['Technicien', `${b.technicien.nom}${b.technicien.qualite ? `, ${b.technicien.qualite}` : ''}`], ['Signature technicien', sigT],
@@ -323,6 +288,22 @@ export function initBon(ctx) {
     tete.className = 'encart';
     tete.textContent = `${numero} — ${date} — ${ctx.profil()?.raisonSociale || ''}`;
     racine.append(tete);
+    const manque = oublis();
+    if (manque.length) {
+      const alerte = document.createElement('div');
+      alerte.className = 'encart';
+      const p = document.createElement('p');
+      p.className = 'sans-marge';
+      p.textContent = '⚠️ Non rempli (tu peux quand même générer le bon) :';
+      alerte.append(p);
+      for (const [ecran, lib] of manque) {
+        const lien = document.createElement('button');
+        lien.type = 'button'; lien.className = 'lien bloc'; lien.textContent = `→ ${lib}`;
+        lien.addEventListener('click', () => ctx.allerA(ecran));
+        alerte.append(lien);
+      }
+      racine.append(alerte);
+    }
     for (const [ecran, titre, lignes] of blocs) {
       const bloc = document.createElement('div');
       bloc.className = 'recap-bloc';
@@ -353,7 +334,7 @@ export function initBon(ctx) {
   // ---------- Génération ----------
   const nomFichier = (b) => {
     const propre = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-    return `Bon-intervention_${b.numero}_${propre(b.client.nom).slice(0, 40)}.pdf`;
+    return `Bon-intervention_${b.numero}${b.client.nom ? `_${propre(b.client.nom).slice(0, 40)}` : ''}.pdf`;
   };
   async function generer(bouton) {
     bouton.disabled = true;
@@ -370,8 +351,8 @@ export function initBon(ctx) {
       await enregistrerClient(b.client).catch(() => {});
       idHistorique = idHistorique || nouvelId();
       await ajouterFiche({
-        id: idHistorique, type: 'bon', numero: b.numero, client: b.client.nom, adresse: b.client.adresse, date: b.date,
-        detail: [b.equipement.type, b.natures.join(', ')].filter(Boolean).join(' — '), nomFichier: file.name,
+        id: idHistorique, type: 'bon', numero: b.numero, client: b.client.nom || 'Client non renseigné', adresse: b.client.adresse, date: b.date,
+        detail: b.natures.join(', '), nomFichier: file.name,
       }, octets).catch((e) => console.warn('Historique non enregistré', e));
       enCours = null;
       $('#bon-nom-fichier').textContent = file.name;
@@ -414,7 +395,6 @@ export function initBon(ctx) {
     idHistorique = null;
     date = new Date().toLocaleDateString('fr-FR');
     clients = await lireClients();
-    $('#bloc-type-autre').hidden = true;
     ctx.allerA('bon-1');
     majSuggestions();
   }
@@ -423,7 +403,8 @@ export function initBon(ctx) {
   $('#btn-reprendre-bon').addEventListener('click', () => ctx.allerA(enCours || 'bon-1'));
 
   // ---------- Interface avec la navigation de l'appli ----------
-  const numeroEtape = (ecran) => { const m = /^bon-(\d)$/.exec(ecran); return m ? Number(m[1]) : null; };
+  // Position (1 à 8) d'un écran dans le parcours du bon.
+  const numeroEtape = (ecran) => { const i = ORDRE.indexOf(ecran); return i >= 0 ? i + 1 : null; };
   return {
     estEcran: (e) => typeof e === 'string' && e.startsWith('bon-'),
     /** Appelé à chaque affichage d'un écran du bon ; renvoie l'état de la barre de navigation. */
@@ -446,13 +427,15 @@ export function initBon(ctx) {
     suivant(e, bouton) {
       const n = numeroEtape(e);
       if (e === 'bon-recap') return generer(bouton);
-      if (n === 1 && valider(1)) { enregistrerClient({ nom: val('b_client'), adresse: val('b_adresse'), contact: val('b_contact') }).catch(() => {}); return ctx.allerA('bon-2'); }
-      if (n && valider(n)) ctx.allerA(n === ETAPES_BON ? 'bon-recap' : `bon-${n + 1}`);
+      if (!n) return;
+      effacerErreurs();
+      if (n === 1 && val('b_client')) enregistrerClient({ nom: val('b_client'), adresse: val('b_adresse'), contact: val('b_contact') }).catch(() => {});
+      ctx.allerA(n === ETAPES_BON ? 'bon-recap' : ORDRE[n]);
     },
     retour(e) {
       const n = numeroEtape(e);
-      if (e === 'bon-recap') return ctx.allerA(`bon-${ETAPES_BON}`);
-      ctx.allerA(n === 1 ? 'bon-accueil' : `bon-${n - 1}`);
+      if (e === 'bon-recap') return ctx.allerA(ORDRE[ETAPES_BON - 1]);
+      ctx.allerA(n === 1 ? 'bon-accueil' : ORDRE[n - 2]);
     },
     ecranCourant: () => enCours,
   };

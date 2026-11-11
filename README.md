@@ -21,18 +21,19 @@ Vous vérifiez le récapitulatif, puis vous générez le PDF officiel et le part
 
 ## Bon d'intervention
 
-Le deuxième onglet sert à faire des bons d'intervention classiques, sans Cerfa. Il compte 9 écrans courts :
+Le deuxième onglet sert à faire des bons d'intervention classiques, sans Cerfa. Il compte 8 écrans courts :
 1. Client
-2. Équipement
-3. Nature de l'opération
-4. Travaux réalisés (compatible avec la dictée du clavier)
-5. Pièces remplacées (prix facultatifs, masqués par défaut)
-6. Temps passé (arrivée et départ, ou durée saisie)
-7. Observations
-8. Photos (1 à 4, réduites automatiquement)
-9. Signatures
+2. Nature de l'opération
+3. Travaux réalisés (compatible avec la dictée du clavier)
+4. Pièces remplacées (prix facultatifs, masqués par défaut)
+5. Temps passé (arrivée et départ, ou durée saisie)
+6. Observations
+7. Photos (1 à 4, réduites automatiquement)
+8. Signatures
 
-La société (avec le logo choisi dans « Mon profil »), le technicien et la date sont remplis automatiquement. Le PDF A4 passe sur plusieurs pages si besoin.
+Aucun écran n'est bloquant : on peut passer à l'écran suivant sans tout remplir. Le récapitulatif liste ce qui manque (avec un lien vers l'écran concerné), mais le bon peut quand même être généré.
+
+La société (avec le logo choisi dans « Mon profil »), le technicien et la date sont remplis automatiquement. Le PDF A4 a un bandeau de couleur avec le logo, des cartes « Client » et « Intervention », des pastilles pour la nature de l'opération, un tableau de pièces et un encadré pour les observations. Il passe sur plusieurs pages si besoin.
 
 - **Numérotation** : `BI-AAAA-NNNN`, propre à l'appareil.
 - **Clients** : les clients saisis sont proposés à la saisie suivante.
