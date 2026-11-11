@@ -1,34 +1,12 @@
 // FrigoFiche — profil du technicien, stocké uniquement sur l'appareil.
-// Enregistrement : localStorage (principal) + IndexedDB (copie de secours).
+// Enregistrement : localStorage (principal) + IndexedDB (copie de secours), voir stockage.js.
 // Aucune donnée n'est envoyée à un serveur.
 
+import { lireDurable, ecrireDurable, effacerDurable } from './stockage.js';
+
 const CLE = 'frigofiche.profil';
-const BASE = 'frigofiche';
-const MAGASIN = 'donnees';
 export const VERSION_PROFIL = 1;
 export const QUALITE_DEFAUT = 'Technicien frigoriste';
-
-// ---------- IndexedDB (secours) ----------
-function ouvrirBase() {
-  return new Promise((ok, ko) => {
-    if (!('indexedDB' in globalThis)) return ko(new Error('IndexedDB indisponible'));
-    const req = indexedDB.open(BASE, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(MAGASIN);
-    req.onsuccess = () => ok(req.result);
-    req.onerror = () => ko(req.error);
-  });
-}
-async function idb(mode, action) {
-  const db = await ouvrirBase();
-  try {
-    return await new Promise((ok, ko) => {
-      const tx = db.transaction(MAGASIN, mode);
-      const req = action(tx.objectStore(MAGASIN));
-      tx.oncomplete = () => ok(req?.result);
-      tx.onerror = () => ko(tx.error);
-    });
-  } finally { db.close(); }
-}
 
 // ---------- Profil ----------
 /** Complète un profil lu (ancienne version, import…) sans jamais perdre de donnée. */
@@ -47,38 +25,23 @@ export function normaliser(p) {
     qualite: t(p.qualite) || QUALITE_DEFAUT,
     email: t(p.email),
     detecteurId: t(p.detecteurId),
+    logo: typeof p.logo === 'string' && p.logo.startsWith('data:image/') ? p.logo : '',
     reglages: { premiereCase7: !!p.reglages?.premiereCase7 },
     verrou: p.verrou && p.verrou.empreinte ? p.verrou : null,
   };
 }
 
 export async function chargerProfil() {
-  try {
-    const brut = localStorage.getItem(CLE);
-    if (brut) return normaliser(JSON.parse(brut));
-  } catch { /* on tente la copie de secours */ }
-  try {
-    const p = await idb('readonly', (s) => s.get(CLE));
-    if (p) {
-      try { localStorage.setItem(CLE, JSON.stringify(p)); } catch { /* ignoré */ }
-      return normaliser(p);
-    }
-  } catch { /* aucune copie */ }
-  return null;
+  return normaliser(await lireDurable(CLE));
 }
 
 export async function enregistrerProfil(p) {
   const profil = { ...normaliser(p), modifieLe: new Date().toISOString() };
-  let ok = false;
-  try { localStorage.setItem(CLE, JSON.stringify(profil)); ok = true; } catch { /* stockage plein ou bloqué */ }
-  try { await idb('readwrite', (s) => s.put(profil, CLE)); ok = true; } catch { /* ignoré */ }
-  if (!ok) throw new Error("Impossible d'enregistrer sur cet appareil (navigation privée ?)");
-  return profil;
+  return ecrireDurable(CLE, profil);
 }
 
 export async function effacerProfil() {
-  try { localStorage.removeItem(CLE); } catch { /* ignoré */ }
-  try { await idb('readwrite', (s) => s.delete(CLE)); } catch { /* ignoré */ }
+  return effacerDurable(CLE);
 }
 
 /** Demande au navigateur de ne pas effacer les données de l'appli en cas de manque de place. */

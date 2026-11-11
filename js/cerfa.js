@@ -58,14 +58,16 @@ export function cadreTrace(traits) {
  * Dessine une signature dans une case du PDF.
  * sig = { traits: [[[x, y], …], …] } (tracé du canevas) ; une image PNG reste acceptée.
  */
-async function placerSignature(PDFLib, pdf, page, sig, [x1, y1, x2, y2]) {
+export async function placerSignature(PDFLib, pdf, page, sig, [x1, y1, x2, y2], options = {}) {
   if (!sig) return;
+  const EP = options.epaisseur ?? SIGNATURE_EPAISSEUR;
+  const MARGE = options.marge ?? SIGNATURE_MARGE;
   const { rgb, LineCapStyle, LineJoinStyle, pushGraphicsState, popGraphicsState, setLineJoin } = PDFLib;
   const bw = x2 - x1, bh = y2 - y1;
 
   if (!sig.traits) { // image PNG : ajustée et centrée dans la case
     const img = await pdf.embedPng(sig);
-    const k = Math.min((bw - 2 * SIGNATURE_MARGE) / img.width, (bh - 2 * SIGNATURE_MARGE) / img.height);
+    const k = Math.min((bw - 2 * MARGE) / img.width, (bh - 2 * MARGE) / img.height);
     const w = img.width * k, h = img.height * k;
     page.drawImage(img, { x: x1 + (bw - w) / 2, y: y1 + (bh - h) / 2, width: w, height: h });
     return;
@@ -76,8 +78,8 @@ async function placerSignature(PDFLib, pdf, page, sig, [x1, y1, x2, y2]) {
   // 1. Recadrage sur le tracé
   const { x0, y0, w, h } = cadreTrace(traits);
   // 2. Échelle pour remplir la case (marge + demi-épaisseur du trait de chaque côté)
-  const iw = bw - 2 * SIGNATURE_MARGE - SIGNATURE_EPAISSEUR;
-  const ih = bh - 2 * SIGNATURE_MARGE - SIGNATURE_EPAISSEUR;
+  const iw = bw - 2 * MARGE - EP;
+  const ih = bh - 2 * MARGE - EP;
   const s = Math.min(iw / Math.max(w, 1), ih / Math.max(h, 1));
   const dw = w * s, dh = h * s;
   // 3. Chemin vectoriel, origine au coin haut-gauche du tracé
@@ -92,7 +94,7 @@ async function placerSignature(PDFLib, pdf, page, sig, [x1, y1, x2, y2]) {
     y: y1 + (bh + dh) / 2,
     scale: s,
     borderColor: rgb(...SIGNATURE_COULEUR),
-    borderWidth: SIGNATURE_EPAISSEUR / s,
+    borderWidth: EP / s,
     borderLineCap: LineCapStyle.Round,
   });
   page.pushOperators(popGraphicsState());

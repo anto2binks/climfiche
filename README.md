@@ -19,6 +19,27 @@ Vous vérifiez le récapitulatif, puis vous générez le PDF officiel et le part
 
 **Confidentialité** : rien n'est envoyé à un serveur. Le profil est enregistré sur le téléphone, dans `localStorage` avec une copie de secours dans IndexedDB. Les mises à jour de l'application ne touchent qu'au cache des fichiers, jamais au profil. Le PDF est rempli dans le navigateur avec [pdf-lib](https://pdf-lib.js.org), qui est inclus dans le dépôt. L'application fonctionne aussi hors ligne.
 
+## Bon d'intervention
+
+Le deuxième onglet sert à faire des bons d'intervention classiques, sans Cerfa. Il compte 9 écrans courts :
+1. Client
+2. Équipement
+3. Nature de l'opération
+4. Travaux réalisés (compatible avec la dictée du clavier)
+5. Pièces remplacées (prix facultatifs, masqués par défaut)
+6. Temps passé (arrivée et départ, ou durée saisie)
+7. Observations
+8. Photos (1 à 4, réduites automatiquement)
+9. Signatures
+
+La société (avec le logo choisi dans « Mon profil »), le technicien et la date sont remplis automatiquement. Le PDF A4 passe sur plusieurs pages si besoin.
+
+- **Numérotation** : `BI-AAAA-NNNN`, propre à l'appareil.
+- **Clients** : les clients saisis sont proposés à la saisie suivante.
+- **Données** : clients et numérotation sont enregistrés comme le profil (`localStorage` + IndexedDB). Une mise à jour de l'application ne les efface jamais.
+
+Un exemple se trouve dans `exemple/bon-exemple.pdf` (pour le régénérer : `npm run exemple-bon`).
+
 ## Remplissage automatique du Cerfa
 
 - Les cases [7] et [8]/[9] (seuil de quantité et fréquence du contrôle) sont cochées automatiquement.
