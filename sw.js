@@ -1,7 +1,7 @@
 // Service worker : met l'application en cache pour un usage hors ligne.
-const VERSION = 'frigofiche-v3';
+const VERSION = 'frigofiche-v4';
 const FICHIERS = [
-  './', 'index.html', 'css/style.css', 'js/app.js', 'js/cerfa.js',
+  './', 'index.html', 'css/style.css', 'js/app.js', 'js/cerfa.js', 'js/profil.js',
   'vendor/pdf-lib.min.js', 'cerfa-15497-04.pdf', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
 ];

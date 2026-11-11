@@ -3,22 +3,30 @@ import {
   FLUIDES, NATURES, calcTeq, signatureDetenteurObligatoire, frequenceControle, fr, remplirCerfa,
   sansManipulation, avecControle,
 } from './cerfa.js';
+import {
+  chargerProfil, enregistrerProfil, effacerProfil, demanderStockagePersistant,
+  siretValide, emailValide, chiffres, nomComplet, QUALITE_DEFAUT,
+  codeDisponible, creerVerrou, verifierCode, fichierExport, lireImport,
+} from './profil.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const champ = (nom) => document.querySelector(`[name="${nom}"]`);
 
+// Anciennes clés (versions précédentes) : lues pour préremplir le profil, jamais effacées.
 const CLE_OPERATEUR = 'frigofiche.operateur';
+const CLE_REGLAGES = 'frigofiche.reglages';
 const CLE_COMPTEUR = 'frigofiche.compteur';
 const CHAMPS_OPERATEUR = ['raisonSociale', 'adresseOperateur', 'siret', 'attestation', 'technicien', 'qualiteTechnicien'];
-// Mémorisés aussi, mais pas obligatoires pour sauter l'écran 1.
-const CHAMPS_MEMORISES = [...CHAMPS_OPERATEUR, 'detecteurId'];
-const CLE_REGLAGES = 'frigofiche.reglages';
+const CHAMPS_PROFIL = ['raisonSociale', 'adresse', 'siret', 'attestation', 'prenom', 'nom', 'qualite', 'email'];
+const RE_VERROUILLAGE_MS = 5 * 60 * 1000; // re-verrouille après 5 min en arrière-plan
 const TITRES = ['Opérateur', 'Client et machine', 'Fluide', 'Contrôle et manipulation', 'Signatures', 'Vérification', 'Fiche prête'];
 const NB_ETAPES = 5;
 
-let etape = 1;
+let etape = 'accueil';
 let pdfGenere = null; // { file, url }
+let profil = null;
+let ficheEnCours = null; // dernière étape atteinte de la fiche en cours
 
 // ---------- Stockage local (protégé : navigation privée, stockage bloqué…) ----------
 const stock = {
@@ -168,7 +176,7 @@ function donnees() {
       .filter((n) => !$(`[data-fuite="${n}"]`).hidden)
       .map((n) => ({ localisation: v(`fuiteLoc${n}`), reparation: radio(`fuiteRep${n}`) }))
       .filter((x) => x.localisation || x.reparation),
-    premiereCase7: champ('premiereCase7').checked,
+    premiereCase7: !!profil?.reglages?.premiereCase7,
     observations: v('observations'),
     signataireClient: v('signataireClient'), qualiteClient: v('qualiteClient'),
     date: aujourdhui(),
@@ -227,15 +235,26 @@ function majSignatures() {
     : '<span class="badge facult">facultative</span> <small>(moins de 3 kg HCFC / 5 t éq. CO₂)</small>';
   if (!champ('signataireClient').value) champ('signataireClient').value = d.detenteur;
 }
-function memoriser() {
-  stock.ecrire(CLE_OPERATEUR, Object.fromEntries(CHAMPS_MEMORISES.map((c) => [c, champ(c).value])));
+// Le détecteur manuel est en général toujours le même : il est mémorisé dans le profil.
+let minuterieDetecteur;
+function memoriserDetecteur(valeur) {
+  clearTimeout(minuterieDetecteur);
+  minuterieDetecteur = setTimeout(() => {
+    if (profil && profil.detecteurId !== valeur.trim()) {
+      profil.detecteurId = valeur.trim();
+      enregistrerProfil(profil).then((p) => { profil = p; }).catch(() => {});
+    }
+  }, 600);
 }
 
 document.addEventListener('change', (e) => {
   const n = e.target.name;
   if (['fluide', 'detection'].includes(n)) majFluide();
   if (n === 'nature') majNature();
-  if (n === 'premiereCase7') stock.ecrire(CLE_REGLAGES, { premiereCase7: e.target.checked });
+  if (n === 'premiereCase7' && profil) {
+    profil.reglages = { ...profil.reglages, premiereCase7: e.target.checked };
+    enregistrerProfil(profil).then((p) => { profil = p; }).catch((err) => montrerMessageProfil(err.message, true));
+  }
   if (n === 'fuite') majFuite();
   e.target.closest('.invalide')?.classList.remove('invalide');
   if (!$('.invalide')) $('#erreur').hidden = true;
@@ -247,7 +266,7 @@ document.addEventListener('input', (e) => {
   if (!$('.invalide')) $('#erreur').hidden = true;
   // Nom et qualité du technicien saisis à l'écran 5 : recopiés dans les champs de l'écran 1.
   if (e.target.dataset.miroir) champ(e.target.dataset.miroir).value = e.target.value;
-  if (CHAMPS_MEMORISES.includes(n) || e.target.dataset.miroir) memoriser();
+  if (n === 'detecteurId') memoriserDetecteur(e.target.value);
 });
 
 // ---------- Validation ----------
@@ -399,7 +418,10 @@ async function generer() {
     if (pdfGenere) URL.revokeObjectURL(pdfGenere.url);
     pdfGenere = { file, url: URL.createObjectURL(file), d };
     memoriserNumero(d.ficheNo);
+    ficheEnCours = null;
     $('#nom-fichier').textContent = nom;
+    $('#bloc-email').hidden = !profil?.email;
+    $('#email-destinataire').textContent = profil?.email || '';
     allerA(7);
   } catch (e) {
     console.error(e);
@@ -428,50 +450,305 @@ $('#btn-partager').addEventListener('click', async () => {
 $('#btn-telecharger').addEventListener('click', telecharger);
 $('#btn-voir').addEventListener('click', () => window.open(pdfGenere.url, '_blank'));
 $('#btn-nouvelle').addEventListener('click', nouvelleFiche);
+$('#btn-copier-email').addEventListener('click', async (e) => {
+  try { await navigator.clipboard.writeText(profil.email); e.target.textContent = '✅ Adresse copiée'; } catch {
+    e.target.textContent = profil.email;
+  }
+  setTimeout(() => { e.target.textContent = "📋 Copier l'adresse"; }, 2500);
+});
 
 // ---------- Navigation ----------
+// Écrans : 'verrou', 'accueil', 'profil', puis les étapes 1 à 7 de la fiche.
 function allerA(n) {
   etape = n;
-  $$('.ecran').forEach((s) => { s.hidden = Number(s.dataset.etape) !== n; });
+  const fiche = typeof n === 'number';
+  $$('.ecran').forEach((s) => { s.hidden = (s.dataset.etape ? Number(s.dataset.etape) : s.dataset.ecran) !== n; });
   $('#erreur').hidden = true;
-  const pct = Math.min(n, 6) / 6 * 100;
-  $('#barre-remplie').style.width = `${pct}%`;
-  $('#etape-texte').textContent = n <= NB_ETAPES ? `Étape ${n} sur ${NB_ETAPES} — ${TITRES[n - 1]}` : TITRES[n - 1];
+  $('#progression').hidden = !fiche;
+  $('#btn-accueil').hidden = n === 'accueil' || n === 'verrou' || (n === 'profil' && !profil);
+  $('#mention-cerfa').hidden = !$('#btn-accueil').hidden;
   const nav = $('#navigation');
-  nav.hidden = n === 7;
-  $('#btn-retour').style.visibility = n === 1 ? 'hidden' : 'visible';
-  $('#btn-suivant').textContent = n === 6 ? '📄 Générer le PDF' : 'Suivant →';
+  nav.hidden = !fiche || n === 7;
+  document.body.classList.toggle('sans-navigation', nav.hidden);
+  if (fiche) {
+    if (n <= 6) ficheEnCours = n;
+    // L'opérateur vient du profil : la fiche commence à « Client et machine » (étape 1 sur 4).
+    const affichage = n === 1 ? 'Opérateur (cette fiche uniquement)'
+      : n <= NB_ETAPES ? `Étape ${n - 1} sur ${NB_ETAPES - 1} — ${TITRES[n - 1]}` : TITRES[n - 1];
+    $('#barre-remplie').style.width = `${Math.min(Math.max(n - 1, 0.3), 5) / 5 * 100}%`;
+    $('#etape-texte').textContent = affichage;
+    $('#btn-suivant').textContent = n === 6 ? '📄 Générer le PDF' : 'Suivant →';
+    $('#btn-retour').textContent = n === 2 ? '🏠 Accueil' : '← Retour';
+  }
   if (n === 3) { majFluide(); majNature(); }
   if (n === 4) { majNature(); majFuite(); }
   if (n === 5) majSignatures();
   if (n === 6) recap();
+  if (n === 'accueil') majAccueil();
+  if (n === 'profil') majProfil();
   window.scrollTo({ top: 0 });
 }
 $('#btn-suivant').addEventListener('click', () => {
   if (etape === 6) return generer();
   if (valider(etape)) allerA(etape + 1);
 });
-$('#btn-retour').addEventListener('click', () => allerA(Math.max(1, etape - 1)));
+$('#btn-retour').addEventListener('click', () => allerA(etape === 2 ? 'accueil' : Math.max(1, etape - 1)));
+$('#btn-accueil').addEventListener('click', () => allerA('accueil'));
+
+/** Remplit la rubrique [1] et le signataire opérateur avec le profil. */
+function preremplirOperateur() {
+  if (!profil) return;
+  champ('raisonSociale').value = profil.raisonSociale;
+  champ('adresseOperateur').value = profil.adresse;
+  champ('siret').value = profil.siret;
+  champ('attestation').value = profil.attestation;
+  champ('technicien').value = nomComplet(profil);
+  champ('qualiteTechnicien').value = profil.qualite;
+  champ('detecteurId').value = profil.detecteurId || '';
+}
 
 function nouvelleFiche() {
-  $$('main input, main textarea').forEach((el) => {
-    if (CHAMPS_MEMORISES.includes(el.name) || el.name === 'premiereCase7' || el.dataset.miroir) return;
+  $$('#app [data-etape] input, #app [data-etape] textarea').forEach((el) => {
     if (el.type === 'radio' || el.type === 'checkbox') el.checked = el.name === 'controlePeriodique' && el.value === 'oui';
     else el.value = '';
   });
   Object.values(pads).forEach((p) => p.effacer());
   [2, 3].forEach((n) => { $(`[data-fuite="${n}"]`).hidden = true; });
+  preremplirOperateur();
   champ('ficheNo').value = prochainNumero();
-  const operateurOk = CHAMPS_OPERATEUR.every((c) => champ(c).value.trim());
-  allerA(operateurOk ? 2 : 1);
+  allerA(2);
 }
 
+// ---------- Accueil ----------
+function majAccueil() {
+  $('#bonjour').textContent = `Bonjour ${profil?.prenom || ''} 👋`.replace('  ', ' ');
+  $('#accueil-societe').textContent = profil ? `${profil.raisonSociale} — ${profil.qualite}` : '';
+  $('#btn-reprendre').hidden = !ficheEnCours;
+}
+$('#btn-nouvelle-fiche').addEventListener('click', nouvelleFiche);
+$('#btn-reprendre').addEventListener('click', () => allerA(ficheEnCours || 2));
+$('#btn-mon-profil').addEventListener('click', () => allerA('profil'));
+
+// ---------- Profil ----------
+const champProfil = (c) => champ(`p_${c}`);
+function montrerMessageProfil(texte, erreur = false, cible = '#message-profil') {
+  const m = $(cible);
+  m.textContent = texte;
+  m.classList.toggle('erreur', erreur);
+  m.hidden = false;
+  clearTimeout(m.t);
+  m.t = setTimeout(() => { m.hidden = true; }, 5000);
+}
+function remplirFormulaireProfil(p) {
+  CHAMPS_PROFIL.forEach((c) => { champProfil(c).value = p?.[c] || ''; });
+  if (!champProfil('qualite').value) champProfil('qualite').value = QUALITE_DEFAUT;
+}
+/** Première ouverture : reprend les infos saisies avec une ancienne version de l'appli. */
+function profilDepuisAnciennesDonnees() {
+  const op = stock.lire(CLE_OPERATEUR);
+  if (!op) return null;
+  return {
+    raisonSociale: op.raisonSociale, adresse: op.adresseOperateur, siret: op.siret, attestation: op.attestation,
+    nom: op.technicien, prenom: '', qualite: op.qualiteTechnicien, detecteurId: op.detecteurId,
+    reglages: { premiereCase7: !!stock.lire(CLE_REGLAGES)?.premiereCase7 },
+  };
+}
+function majProfil() {
+  const creation = !profil;
+  $('#profil-titre').textContent = creation ? 'Crée ton profil' : 'Mon profil';
+  $('#profil-intro').textContent = creation
+    ? "Ces informations rempliront automatiquement chaque fiche. Tu ne les saisis qu'une fois."
+    : 'Modifie tes informations puis enregistre. Elles servent pour toutes les nouvelles fiches.';
+  $('#btn-enregistrer-profil').textContent = creation ? '✅ Créer mon profil' : '✅ Enregistrer les modifications';
+  $('#btn-import-creation').hidden = !creation;
+  $('#profil-options').hidden = creation;
+  $('#erreur-profil').hidden = true;
+  $$('#form-profil .invalide').forEach((el) => el.classList.remove('invalide'));
+  remplirFormulaireProfil(profil || profilDepuisAnciennesDonnees());
+  if (!creation) {
+    champ('premiereCase7').checked = !!profil.reglages?.premiereCase7;
+    majEtatCode();
+  }
+}
+$('#form-profil').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const v = Object.fromEntries(CHAMPS_PROFIL.map((c) => [c, champProfil(c).value.trim()]));
+  const fautes = [];
+  const exiger = (c, msg) => { if (!v[c]) fautes.push([c, msg]); };
+  exiger('raisonSociale', 'Indique la raison sociale.');
+  exiger('adresse', "Indique l'adresse de la société.");
+  if (!siretValide(v.siret)) fautes.push(['siret', `Le SIRET doit comporter exactement 14 chiffres (${chiffres(v.siret).replace(/\D/g, '').length} saisis).`]);
+  exiger('attestation', "Indique le n° d'attestation de capacité.");
+  exiger('prenom', 'Indique ton prénom.');
+  exiger('nom', 'Indique ton nom.');
+  exiger('qualite', 'Indique ta qualité.');
+  if (!emailValide(v.email)) fautes.push(['email', "L'adresse e-mail n'est pas valide."]);
+  $$('#form-profil .invalide').forEach((el) => el.classList.remove('invalide'));
+  const err = $('#erreur-profil');
+  if (fautes.length) {
+    fautes.forEach(([c]) => champProfil(c).classList.add('invalide'));
+    err.textContent = fautes.map((f) => f[1]).join(' ');
+    err.hidden = false;
+    champProfil(fautes[0][0]).focus();
+    return;
+  }
+  err.hidden = true;
+  const creation = !profil;
+  const base = profil || profilDepuisAnciennesDonnees() || {};
+  try {
+    profil = await enregistrerProfil({ ...base, ...v, siret: chiffres(v.siret) });
+  } catch (ex) {
+    err.textContent = ex.message; err.hidden = false; return;
+  }
+  demanderStockagePersistant();
+  if (creation) allerA('accueil');
+  else montrerMessageProfil('✅ Profil enregistré.', false, '#message-enregistre');
+});
+
+// Code de verrouillage
+function majEtatCode() {
+  const actif = !!profil?.verrou;
+  $('#etat-code').textContent = !codeDisponible()
+    ? "Le code n'est pas disponible dans ce navigateur."
+    : actif ? '✅ Code activé : il sera demandé à chaque ouverture.' : 'Aucun code défini.';
+  $('#btn-definir-code').hidden = !codeDisponible();
+  $('#btn-definir-code').textContent = actif ? '🔁 Changer le code' : '🔒 Définir un code';
+  $('#btn-supprimer-code').hidden = !actif;
+  $('#bloc-definir-code').hidden = true;
+}
+$('#btn-definir-code').addEventListener('click', () => {
+  $('#bloc-definir-code').hidden = false;
+  $('#btn-definir-code').hidden = true;
+  champ('nouveauCode').value = ''; champ('confirmeCode').value = '';
+  champ('nouveauCode').focus();
+});
+$('#btn-valider-code').addEventListener('click', async () => {
+  const a = champ('nouveauCode').value, b = champ('confirmeCode').value;
+  if (!/^\d{4}$/.test(a)) return montrerMessageProfil('Le code doit comporter exactement 4 chiffres.', true, '#message-code');
+  if (a !== b) return montrerMessageProfil('Les deux codes ne correspondent pas.', true, '#message-code');
+  try {
+    profil = await enregistrerProfil({ ...profil, verrou: await creerVerrou(a) });
+    champ('nouveauCode').value = ''; champ('confirmeCode').value = '';
+    majEtatCode();
+    montrerMessageProfil('🔒 Code activé.', false, '#message-code');
+  } catch (ex) { montrerMessageProfil(ex.message, true, '#message-code'); }
+});
+$('#btn-supprimer-code').addEventListener('click', async () => {
+  if (!confirm('Supprimer le code de verrouillage ?')) return;
+  profil = await enregistrerProfil({ ...profil, verrou: null });
+  majEtatCode();
+  montrerMessageProfil('🔓 Code supprimé.', false, '#message-code');
+});
+
+// Sauvegarde et restauration
+$('#btn-exporter').addEventListener('click', async () => {
+  const file = fichierExport(profil);
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: 'Sauvegarde FrigoFiche' }); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url; a.download = file.name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  montrerMessageProfil(`📤 Fichier « ${file.name} » enregistré.`);
+});
+const ouvrirImport = () => { $('#fichier-import').value = ''; $('#fichier-import').click(); };
+$('#btn-importer').addEventListener('click', ouvrirImport);
+$('#btn-import-creation').addEventListener('click', ouvrirImport);
+$('#fichier-import').addEventListener('change', async (e) => {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  try {
+    const importe = lireImport(await f.text());
+    if (profil && !confirm(`Remplacer ton profil actuel par celui de la sauvegarde (${importe.raisonSociale}, ${nomComplet(importe)}) ?`)) return;
+    const creation = !profil;
+    // Le code de verrouillage de cet appareil est conservé (il n'est jamais exporté).
+    profil = await enregistrerProfil({ ...importe, verrou: profil?.verrou || null });
+    demanderStockagePersistant();
+    if (creation) allerA('accueil');
+    else { majProfil(); montrerMessageProfil('📥 Profil importé.'); }
+  } catch (ex) {
+    if (profil) montrerMessageProfil(ex.message, true);
+    else { $('#erreur-profil').textContent = ex.message; $('#erreur-profil').hidden = false; }
+  }
+});
+
+// ---------- Écran de verrouillage ----------
+let saisieCode = '';
+let echecs = 0;
+let bloqueJusqua = 0;
+function majPoints() {
+  $$('#points-code span').forEach((p, i) => p.classList.toggle('plein', i < saisieCode.length));
+}
+async function toucheCode(t) {
+  if (Date.now() < bloqueJusqua) return;
+  if (t === 'effacer') saisieCode = saisieCode.slice(0, -1);
+  else if (saisieCode.length < 4) saisieCode += t;
+  majPoints();
+  if (saisieCode.length < 4) return;
+  const ok = await verifierCode(saisieCode, profil.verrou);
+  saisieCode = '';
+  if (ok) {
+    echecs = 0;
+    $('#erreur-code').textContent = '';
+    majPoints();
+    allerA(apresDeverrouillage || 'accueil');
+    apresDeverrouillage = null;
+    return;
+  }
+  echecs++;
+  const points = $('#points-code');
+  points.classList.remove('secoue'); void points.offsetWidth; points.classList.add('secoue');
+  majPoints();
+  if (echecs >= 5) {
+    bloqueJusqua = Date.now() + 30000;
+    $('#erreur-code').textContent = 'Trop d’essais. Réessaie dans 30 secondes.';
+    setTimeout(() => { $('#erreur-code').textContent = ''; echecs = 0; }, 30000);
+  } else {
+    $('#erreur-code').textContent = 'Code incorrect.';
+  }
+}
+$('#clavier-code').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (b) toucheCode(b.dataset.touche || b.textContent.trim());
+});
+document.addEventListener('keydown', (e) => {
+  if (etape !== 'verrou') return;
+  if (/^\d$/.test(e.key)) toucheCode(e.key);
+  if (e.key === 'Backspace') toucheCode('effacer');
+});
+$('#btn-code-oublie').addEventListener('click', () => { $('#aide-code-oublie').hidden = false; });
+$('#btn-reinitialiser').addEventListener('click', async () => {
+  if (!confirm('Effacer ton profil de ce téléphone ? Tu devras le recréer ou importer ta sauvegarde.')) return;
+  await effacerProfil();
+  profil = null;
+  $('#aide-code-oublie').hidden = true;
+  allerA('profil');
+});
+
+let apresDeverrouillage = null;
+let cacheLe = 0;
+function verrouiller() {
+  apresDeverrouillage = etape === 'verrou' ? apresDeverrouillage : etape;
+  saisieCode = '';
+  majPoints();
+  allerA('verrou');
+}
+// Re-verrouillage quand l'appli revient après plusieurs minutes en arrière-plan.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { cacheLe = Date.now(); return; }
+  if (profil?.verrou && cacheLe && Date.now() - cacheLe > RE_VERROUILLAGE_MS && etape !== 'verrou') verrouiller();
+});
+
 // ---------- Démarrage ----------
-const op = stock.lire(CLE_OPERATEUR);
-if (op) CHAMPS_MEMORISES.forEach((c) => { if (op[c]) champ(c).value = op[c]; });
-champ('premiereCase7').checked = !!stock.lire(CLE_REGLAGES)?.premiereCase7;
-champ('ficheNo').value = prochainNumero();
-allerA(op && CHAMPS_OPERATEUR.every((c) => op[c]) ? 2 : 1);
+async function demarrer() {
+  profil = await chargerProfil();
+  if (!profil) return allerA('profil');
+  if (profil.verrou) { apresDeverrouillage = 'accueil'; return allerA('verrou'); }
+  allerA('accueil');
+}
+demarrer();
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

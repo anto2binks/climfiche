@@ -19,19 +19,112 @@
 <body>
   <header class="entete">
     <h1>❄️ FrigoFiche</h1>
-    <p class="sous-titre">Cerfa 15497*04</p>
+    <button type="button" class="btn-entete" id="btn-accueil" hidden>🏠 Accueil</button>
+    <p class="sous-titre" id="mention-cerfa">Cerfa 15497*04</p>
   </header>
 
-  <nav class="progression" aria-label="Progression">
+  <nav class="progression" id="progression" aria-label="Progression">
     <div class="barre"><div id="barre-remplie"></div></div>
     <p id="etape-texte">Étape 1 sur 5 — Opérateur</p>
   </nav>
 
   <main id="app">
+    <!-- Verrouillage -->
+    <section class="ecran" data-ecran="verrou" hidden>
+      <div class="verrou">
+        <p class="verrou-icone" aria-hidden="true">🔒</p>
+        <h2 class="centre">Entre ton code</h2>
+        <div class="points" id="points-code" aria-live="polite"><span></span><span></span><span></span><span></span></div>
+        <p class="erreur-code" id="erreur-code" role="alert"></p>
+        <div class="clavier" id="clavier-code">
+          <button type="button">1</button><button type="button">2</button><button type="button">3</button>
+          <button type="button">4</button><button type="button">5</button><button type="button">6</button>
+          <button type="button">7</button><button type="button">8</button><button type="button">9</button>
+          <span></span><button type="button">0</button><button type="button" data-touche="effacer" aria-label="Effacer">⌫</button>
+        </div>
+        <button type="button" class="lien centre-bloc" id="btn-code-oublie">Code oublié ?</button>
+        <div class="encart" id="aide-code-oublie" hidden>
+          Le code n'est enregistré nulle part en clair : il ne peut pas être retrouvé.
+          Pour continuer, efface le profil puis recrée-le (ou importe ta sauvegarde).
+          Les fiches déjà envoyées ne sont pas concernées.
+          <button type="button" class="bouton danger" id="btn-reinitialiser">Effacer le profil et recommencer</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Accueil -->
+    <section class="ecran" data-ecran="accueil" hidden>
+      <h2 class="bonjour" id="bonjour">Bonjour</h2>
+      <p class="aide" id="accueil-societe"></p>
+      <button type="button" class="bouton principal geant" id="btn-nouvelle-fiche">➕ Nouvelle fiche</button>
+      <button type="button" class="bouton" id="btn-reprendre" hidden>↩️ Reprendre la fiche en cours</button>
+      <button type="button" class="bouton" id="btn-mon-profil">👤 Mon profil</button>
+      <p class="vie-privee">🔐 Tes informations restent sur ton téléphone et ne sont envoyées à personne.</p>
+    </section>
+
+    <!-- Profil (création ou modification) -->
+    <section class="ecran" data-ecran="profil" hidden>
+      <h2 id="profil-titre">Crée ton profil</h2>
+      <p class="aide" id="profil-intro">Ces informations rempliront automatiquement chaque fiche. Tu ne les saisis qu'une fois.</p>
+      <p class="vie-privee">🔐 Tes informations restent sur ton téléphone et ne sont envoyées à personne.</p>
+      <form id="form-profil" novalidate>
+        <h3 class="sous-titre-ecran">Société</h3>
+        <label>Raison sociale
+          <input name="p_raisonSociale" required autocomplete="organization"></label>
+        <label>Adresse de la société
+          <textarea name="p_adresse" rows="2" required autocomplete="street-address"></textarea></label>
+        <label>N° SIRET
+          <input name="p_siret" inputmode="numeric" required placeholder="14 chiffres" autocomplete="off"></label>
+        <label>N° d'attestation de capacité
+          <input name="p_attestation" required autocomplete="off"></label>
+        <h3 class="sous-titre-ecran">Technicien</h3>
+        <label>Prénom
+          <input name="p_prenom" required autocomplete="given-name"></label>
+        <label>Nom
+          <input name="p_nom" required autocomplete="family-name"></label>
+        <label>Qualité
+          <input name="p_qualite" required></label>
+        <label>Adresse e-mail pour l'envoi des fiches <span class="facultatif">facultatif</span>
+          <input name="p_email" type="email" inputmode="email" autocomplete="email" placeholder="ex. patron@entreprise.fr"></label>
+        <p class="erreur" id="erreur-profil" role="alert" hidden></p>
+        <button type="submit" class="bouton principal" id="btn-enregistrer-profil">✅ Enregistrer mon profil</button>
+        <p class="message-ok" id="message-enregistre" role="status" hidden></p>
+      </form>
+      <button type="button" class="bouton discret" id="btn-import-creation">📥 J'ai déjà une sauvegarde : importer mon profil</button>
+
+      <div id="profil-options" hidden>
+        <h3 class="sous-titre-ecran">Réglages</h3>
+        <label class="option interrupteur"><input type="checkbox" name="premiereCase7"><span>Cocher la première case de [7] même sous les seuils</span></label>
+        <p class="aide petit">Désactivé : aucune case du cadre [7] n'est cochée sous 2 kg (HCFC), 5 t éq. CO₂ (HFC) ou 1 kg (HFO).</p>
+
+        <h3 class="sous-titre-ecran">Code de verrouillage <span class="facultatif">facultatif</span></h3>
+        <p class="aide petit">Un code à 4 chiffres demandé à chaque ouverture de l'application. Seule une empreinte du code est enregistrée, jamais le code lui-même.</p>
+        <p class="encart petit">⚠️ Ce code protège contre un simple curieux qui prendrait ton téléphone. Il ne protège pas contre quelqu'un qui a les compétences pour accéder aux données de l'appareil.</p>
+        <p class="etat-code" id="etat-code"></p>
+        <div id="bloc-definir-code" hidden>
+          <label>Nouveau code (4 chiffres)
+            <input name="nouveauCode" type="password" inputmode="numeric" maxlength="4" autocomplete="off" pattern="[0-9]*"></label>
+          <label>Confirme le code
+            <input name="confirmeCode" type="password" inputmode="numeric" maxlength="4" autocomplete="off" pattern="[0-9]*"></label>
+          <button type="button" class="bouton principal" id="btn-valider-code">🔒 Activer le code</button>
+        </div>
+        <button type="button" class="bouton" id="btn-definir-code">🔒 Définir un code</button>
+        <button type="button" class="bouton discret" id="btn-supprimer-code" hidden>🔓 Supprimer le code</button>
+        <p class="message-ok" id="message-code" role="status" hidden></p>
+
+        <h3 class="sous-titre-ecran">Sauvegarde</h3>
+        <p class="aide petit">Pour retrouver tes informations après un changement de téléphone. Le fichier ne contient pas ton code de verrouillage.</p>
+        <button type="button" class="bouton" id="btn-exporter">📤 Exporter mon profil</button>
+        <button type="button" class="bouton" id="btn-importer">📥 Importer mon profil</button>
+        <p class="message-ok" id="message-profil" role="status" hidden></p>
+      </div>
+      <input type="file" id="fichier-import" accept=".json,application/json" hidden>
+    </section>
+
     <!-- 1. Opérateur -->
     <section class="ecran" data-etape="1">
       <h2><span class="num">1</span> Opérateur</h2>
-      <p class="aide">Ces informations restent enregistrées sur ce téléphone.</p>
+      <p class="aide">Prérempli depuis ton profil. Une modification ici ne vaut que pour cette fiche (pour un changement durable : « Mon profil »).</p>
       <label>Raison sociale
         <input name="raisonSociale" required autocomplete="organization"></label>
       <label>Adresse de l'opérateur
@@ -44,11 +137,6 @@
         <input name="technicien" required autocomplete="name"></label>
       <label>Qualité du technicien
         <input name="qualiteTechnicien" required placeholder="ex. Technicien frigoriste"></label>
-      <fieldset class="reglages">
-        <legend>Réglages</legend>
-        <label class="option interrupteur"><input type="checkbox" name="premiereCase7"><span>Cocher la première case de [7] même sous les seuils</span></label>
-        <p class="aide petit">Désactivé : aucune case du cadre [7] n'est cochée sous 2 kg (HCFC), 5 t éq. CO₂ (HFC) ou 1 kg (HFO).</p>
-      </fieldset>
     </section>
 
     <!-- 2. Client et machine -->
@@ -196,6 +284,11 @@
     <section class="ecran" data-etape="7" hidden>
       <h2>📄 Fiche prête</h2>
       <p class="aide" id="nom-fichier"></p>
+      <div class="encart" id="bloc-email" hidden>
+        Envoi à : <strong id="email-destinataire"></strong>
+        <button type="button" class="bouton" id="btn-copier-email">📋 Copier l'adresse</button>
+        <span class="aide petit">Dans l'e-mail, colle l'adresse dans « À ».</span>
+      </div>
       <button type="button" class="bouton principal" id="btn-partager">📤 Partager le PDF</button>
       <button type="button" class="bouton" id="btn-telecharger">⬇️ Télécharger le PDF</button>
       <button type="button" class="bouton" id="btn-voir">👁️ Voir le PDF</button>
