@@ -265,3 +265,5 @@ body.avec-onglets .navigation { bottom: calc(var(--h-onglets) + env(safe-area-in
 .fiche-texte strong { overflow-wrap: anywhere; }
 .fiche-detail { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fiche-actions { padding: 2px 14px 14px; }
+.sans-marge { margin: 0; }
+.lien.bloc { display: block; text-align: left; padding: 6px 0; min-height: 40px; }
