@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>FrigoFiche</title>
+  <meta name="description" content="Fiche d'intervention fluides frigorigènes (Cerfa 15497*04) remplie depuis le téléphone.">
+  <meta name="theme-color" content="#0b4f8a" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="FrigoFiche">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="entete">
+    <h1>❄️ FrigoFiche</h1>
+    <p class="sous-titre">Cerfa 15497*04</p>
+  </header>
+
+  <nav class="progression" aria-label="Progression">
+    <div class="barre"><div id="barre-remplie"></div></div>
+    <p id="etape-texte">Étape 1 sur 5 — Opérateur</p>
+  </nav>
+
+  <main id="app">
+    <!-- 1. Opérateur -->
+    <section class="ecran" data-etape="1">
+      <h2><span class="num">1</span> Opérateur</h2>
+      <p class="aide">Ces informations restent enregistrées sur ce téléphone.</p>
+      <label>Raison sociale (et adresse)
+        <textarea name="raisonSociale" rows="2" required autocomplete="organization"></textarea></label>
+      <label>N° SIRET
+        <input name="siret" inputmode="numeric" required placeholder="14 chiffres" autocomplete="off"></label>
+      <label>N° d'attestation de capacité
+        <input name="attestation" required autocomplete="off"></label>
+      <label>Nom du technicien
+        <input name="technicien" required autocomplete="name"></label>
+    </section>
+
+    <!-- 2. Client et machine -->
+    <section class="ecran" data-etape="2" hidden>
+      <h2><span class="num">2</span> Client et machine</h2>
+      <label>Nom du détenteur (client)
+        <input name="detenteur" required></label>
+      <label>Adresse de l'équipement
+        <textarea name="adresse" rows="2" required autocomplete="street-address"></textarea></label>
+      <label>Référence de la machine
+        <input name="reference" required placeholder="Marque et modèle"></label>
+      <label>N° de série <span class="facultatif">facultatif</span>
+        <input name="serie"></label>
+      <label>N° de la fiche
+        <input name="ficheNo" required></label>
+    </section>
+
+    <!-- 3. Fluide -->
+    <section class="ecran" data-etape="3" hidden>
+      <h2><span class="num">3</span> Fluide</h2>
+      <fieldset>
+        <legend>Fluide frigorigène</legend>
+        <div class="choix grille" id="choix-fluide"></div>
+      </fieldset>
+      <label>Charge totale de l'équipement (kg)
+        <input name="charge" inputmode="decimal" required placeholder="ex. 2,5"></label>
+      <div class="encart" id="encart-teq" hidden></div>
+      <fieldset>
+        <legend>Nature de l'intervention</legend>
+        <div class="choix" id="choix-nature"></div>
+      </fieldset>
+      <fieldset id="bloc-periodique" hidden>
+        <legend>Type de contrôle</legend>
+        <div class="choix duo">
+          <label class="option"><input type="radio" name="controlePeriodique" value="oui" checked><span>Périodique</span></label>
+          <label class="option"><input type="radio" name="controlePeriodique" value="non"><span>Non périodique</span></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Système permanent de détection de fuites ?</legend>
+        <div class="choix duo">
+          <label class="option"><input type="radio" name="detection" value="oui"><span>Oui</span></label>
+          <label class="option"><input type="radio" name="detection" value="non"><span>Non</span></label>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- 4. Manipulation -->
+    <section class="ecran" data-etape="4" hidden>
+      <h2><span class="num">4</span> Manipulation du fluide</h2>
+      <div id="bloc-quantites">
+        <label>Quantité chargée totale (kg)
+          <input name="qteChargee" inputmode="decimal" placeholder="0"></label>
+        <label>dont fluide recyclé (kg)
+          <input name="qteRecyclee" inputmode="decimal" placeholder="0"></label>
+        <label>Quantité récupérée (kg)
+          <input name="qteRecuperee" inputmode="decimal" placeholder="0"></label>
+      </div>
+      <p class="encart" id="info-controle" hidden>Contrôle d'étanchéité : aucun fluide manipulé, les quantités ne sont pas demandées.</p>
+      <fieldset>
+        <legend>Fuite constatée ?</legend>
+        <div class="choix duo">
+          <label class="option"><input type="radio" name="fuite" value="oui"><span>Oui</span></label>
+          <label class="option"><input type="radio" name="fuite" value="non"><span>Non</span></label>
+        </div>
+      </fieldset>
+      <div id="bloc-fuite" hidden>
+        <label>Localisation de la fuite <span class="facultatif">facultatif</span>
+          <input name="fuiteLocalisation"></label>
+        <fieldset>
+          <legend>Réparation de la fuite</legend>
+          <div class="choix duo">
+            <label class="option"><input type="radio" name="fuiteReparation" value="realisee"><span>Réalisée</span></label>
+            <label class="option"><input type="radio" name="fuiteReparation" value="afaire"><span>À faire</span></label>
+          </div>
+        </fieldset>
+      </div>
+      <label>Observations <span class="facultatif">facultatif</span>
+        <textarea name="observations" rows="3"></textarea></label>
+    </section>
+
+    <!-- 5. Signatures -->
+    <section class="ecran" data-etape="5" hidden>
+      <h2><span class="num">5</span> Signatures</h2>
+      <div class="signature">
+        <div class="signature-titre"><strong>Technicien</strong> <span id="nom-tech-sig"></span></div>
+        <canvas id="sig-tech" aria-label="Zone de signature du technicien"></canvas>
+        <button type="button" class="lien" data-effacer="sig-tech">Effacer</button>
+      </div>
+      <div class="signature">
+        <div class="signature-titre"><strong>Client</strong> <span id="mention-client"></span></div>
+        <label>Nom du signataire
+          <input name="signataireClient"></label>
+        <label>Qualité <span class="facultatif">facultatif</span>
+          <input name="qualiteClient" placeholder="ex. Gérant"></label>
+        <canvas id="sig-client" aria-label="Zone de signature du client"></canvas>
+        <button type="button" class="lien" data-effacer="sig-client">Effacer</button>
+      </div>
+    </section>
+
+    <!-- 6. Récapitulatif -->
+    <section class="ecran" data-etape="6" hidden>
+      <h2><span class="num">✓</span> Vérifier avant de générer</h2>
+      <div id="recap"></div>
+    </section>
+
+    <!-- 7. Résultat -->
+    <section class="ecran" data-etape="7" hidden>
+      <h2>📄 Fiche prête</h2>
+      <p class="aide" id="nom-fichier"></p>
+      <button type="button" class="bouton principal" id="btn-partager">📤 Partager le PDF</button>
+      <button type="button" class="bouton" id="btn-telecharger">⬇️ Télécharger le PDF</button>
+      <button type="button" class="bouton" id="btn-voir">👁️ Voir le PDF</button>
+      <button type="button" class="bouton discret" id="btn-nouvelle">➕ Nouvelle fiche</button>
+    </section>
+
+    <p class="erreur" id="erreur" role="alert" hidden></p>
+  </main>
+
+  <footer class="navigation" id="navigation">
+    <button type="button" class="bouton" id="btn-retour">← Retour</button>
+    <button type="button" class="bouton principal" id="btn-suivant">Suivant →</button>
+  </footer>
+
+  <script src="vendor/pdf-lib.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

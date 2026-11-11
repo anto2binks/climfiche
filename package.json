@@ -1,0 +1,7 @@
+{
+  "name": "frigofiche",
+  "private": true,
+  "type": "module",
+  "scripts": { "exemple": "node test/exemple.mjs" },
+  "devDependencies": { "pdf-lib": "1.17.1" }
+}
