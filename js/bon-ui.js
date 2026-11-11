@@ -4,6 +4,7 @@ import {
   prochainNumeroBon, memoriserNumeroBon, lireClients, enregistrerClient, supprimerClient, filtrerClients,
 } from './bon.js';
 import { genererBon } from './bon-pdf.js';
+import { ajouterFiche, nouvelId } from './historique.js';
 import { PaveSignature } from './signature.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -30,6 +31,7 @@ export function initBon(ctx) {
   let enCours = null;       // dernier écran atteint du bon en cours
   let genere = null;        // { file, url, b }
   let numeroMemorise = false;
+  let idHistorique = null;  // identifiant du bon en cours dans « Mes fiches »
 
   // ---------- Choix ----------
   const creer = (conteneur, nom, valeurs, type) => {
@@ -366,6 +368,11 @@ export function initBon(ctx) {
       genere = { file, url: URL.createObjectURL(file), b };
       if (!numeroMemorise) { await memoriserNumeroBon(numero); numeroMemorise = true; }
       await enregistrerClient(b.client).catch(() => {});
+      idHistorique = idHistorique || nouvelId();
+      await ajouterFiche({
+        id: idHistorique, type: 'bon', numero: b.numero, client: b.client.nom, adresse: b.client.adresse, date: b.date,
+        detail: [b.equipement.type, b.natures.join(', ')].filter(Boolean).join(' — '), nomFichier: file.name,
+      }, octets).catch((e) => console.warn('Historique non enregistré', e));
       enCours = null;
       $('#bon-nom-fichier').textContent = file.name;
       const email = ctx.profil()?.email;
@@ -404,6 +411,7 @@ export function initBon(ctx) {
     champ('b_techQualite').value = p.qualite || '';
     numero = await prochainNumeroBon();
     numeroMemorise = false;
+    idHistorique = null;
     date = new Date().toLocaleDateString('fr-FR');
     clients = await lireClients();
     $('#bloc-type-autre').hidden = true;

@@ -40,6 +40,12 @@ La société (avec le logo choisi dans « Mon profil »), le technicien et la da
 
 Un exemple se trouve dans `exemple/bon-exemple.pdf` (pour le régénérer : `npm run exemple-bon`).
 
+## Mes fiches (historique)
+
+Le troisième onglet, **Mes fiches**, liste toutes les fiches Cerfa et tous les bons générés sur le téléphone, du plus récent au plus ancien. Une recherche (client, numéro, adresse, date) et un filtre Tout / Cerfa / Bons permettent de retrouver une fiche. En touchant une fiche, on peut la partager à nouveau, la voir, la télécharger ou la supprimer.
+
+Les PDF sont enregistrés dans IndexedDB (base `frigofiche-historique`), uniquement sur l'appareil. Une mise à jour de l'application ne les efface pas, mais la suppression de l'application ou des données du navigateur, si.
+
 ## Remplissage automatique du Cerfa
 
 - Les cases [7] et [8]/[9] (seuil de quantité et fréquence du contrôle) sont cochées automatiquement.
