@@ -163,3 +163,42 @@ fieldset.invalide .option span { border-color: var(--erreur); }
 .option input[type="checkbox"]:checked + span::before { content: "☑ "; }
 .aide.petit { font-size: .85rem; margin: 8px 0 0; }
 .fuite { margin-top: 6px; padding: 4px 12px 12px; border-left: 4px solid var(--accent); background: var(--surface); border-radius: 0 var(--rayon) var(--rayon) 0; }
+
+/* En-tête : bouton accueil */
+.btn-entete {
+  font: inherit; font-size: .9rem; font-weight: 800; color: var(--accent-texte);
+  background: transparent; border: 2px solid currentColor; border-radius: 99px;
+  padding: 6px 14px; min-height: 40px; cursor: pointer;
+}
+body.sans-navigation { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+
+/* Accueil */
+.bonjour { font-size: 1.8rem; margin-top: 28px; }
+.bouton.geant { min-height: 96px; font-size: 1.35rem; margin-top: 20px; }
+.vie-privee {
+  margin: 22px 0 0; padding: 12px 14px; border-radius: var(--rayon);
+  background: var(--surface); border: 2px solid var(--bordure); font-weight: 600;
+}
+.bouton.danger { background: var(--erreur); color: #fff; border-color: var(--erreur); }
+.encart.petit, .aide.petit { font-size: .9rem; }
+.message-ok { margin-top: 12px; font-weight: 700; color: var(--succes); }
+.message-ok.erreur { color: var(--erreur); }
+.etat-code { font-weight: 700; margin: 12px 0 0; }
+
+/* Écran de verrouillage */
+.verrou { max-width: 360px; margin: 0 auto; padding-top: 10px; }
+.verrou-icone { font-size: 3rem; text-align: center; margin: 10px 0 0; }
+.centre { justify-content: center; text-align: center; }
+.centre-bloc { display: block; margin: 8px auto 0; }
+.points { display: flex; justify-content: center; gap: 18px; margin: 18px 0 6px; }
+.points span { width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--texte); }
+.points span.plein { background: var(--texte); }
+.points.secoue { animation: secoue .35s; }
+@keyframes secoue { 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+.erreur-code { min-height: 1.5em; text-align: center; color: var(--erreur); font-weight: 700; margin: 0; }
+.clavier { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 10px; }
+.clavier button {
+  min-height: 72px; font: inherit; font-size: 1.7rem; font-weight: 800; color: var(--texte);
+  background: var(--surface); border: 2px solid var(--bordure); border-radius: 50px; cursor: pointer;
+}
+.clavier button:active { background: var(--choix-actif); }

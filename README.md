@@ -2,18 +2,22 @@
 
 Application web mobile (PWA) qui remplit le **Cerfa 15497\*04**, la fiche d'intervention pour les fluides frigorigènes, directement sur le téléphone du technicien.
 
-1. **Opérateur** : raison sociale, adresse, SIRET, attestation de capacité, nom et qualité du technicien, mémorisés sur le téléphone. On y trouve aussi les réglages.
-2. **Client et machine** : détenteur, adresse, référence, n° de série
-3. **Fluide** : fluide, charge, une ou plusieurs natures d'intervention, détection permanente. Calcul automatique des t éq. CO₂.
-4. **Contrôle et manipulation** :
+**Profil du technicien** : à la première ouverture, l'écran « Crée ton profil » demande la société, le SIRET (14 chiffres), l'attestation de capacité, le nom, la qualité et un e-mail facultatif. Chaque nouvelle fiche reprend ensuite ces informations dans la rubrique [1] et pour le signataire opérateur. Depuis l'accueil, le bouton « Mon profil » permet de :
+- modifier ces informations ;
+- définir un code de verrouillage facultatif à 4 chiffres (seule une empreinte PBKDF2 est enregistrée) ;
+- exporter ou importer le profil (fichier `.json`, sans le code) pour changer de téléphone.
+
+1. **Client et machine** : détenteur, adresse, référence, n° de série
+2. **Fluide** : fluide, charge, une ou plusieurs natures d'intervention, détection permanente. Calcul automatique des t éq. CO₂.
+3. **Contrôle et manipulation** :
    - Pour un contrôle d'étanchéité : date du contrôle et détecteur manuel (cadre [5]).
    - Quantités chargée, recyclée et récupérée. Elles ne sont pas demandées pour un contrôle d'étanchéité seul.
    - Fuite constatée : jusqu'à 3 fuites, chacune avec « réparation réalisée / à faire » (cadre [10]).
-5. **Signatures** au doigt, avec le nom et la qualité du technicien et du signataire client. La signature du client devient obligatoire à partir de 3 kg de HCFC ou de 5 t éq. CO₂.
+4. **Signatures** au doigt, avec le nom et la qualité du technicien et du signataire client. La signature du client devient obligatoire à partir de 3 kg de HCFC ou de 5 t éq. CO₂.
 
 Vous vérifiez le récapitulatif, puis vous générez le PDF officiel et le partagez par e-mail, WhatsApp ou une autre application. Si le partage n'est pas disponible, le PDF est téléchargé.
 
-**Confidentialité** : rien n'est envoyé à un serveur. Le PDF est rempli dans le navigateur avec [pdf-lib](https://pdf-lib.js.org), qui est inclus dans le dépôt. L'application fonctionne aussi hors ligne.
+**Confidentialité** : rien n'est envoyé à un serveur. Le profil est enregistré sur le téléphone, dans `localStorage` avec une copie de secours dans IndexedDB. Les mises à jour de l'application ne touchent qu'au cache des fichiers, jamais au profil. Le PDF est rempli dans le navigateur avec [pdf-lib](https://pdf-lib.js.org), qui est inclus dans le dépôt. L'application fonctionne aussi hors ligne.
 
 ## Remplissage automatique du Cerfa
 
