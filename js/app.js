@@ -10,6 +10,8 @@ import {
 } from './profil.js';
 import { PaveSignature } from './signature.js';
 import { initBon } from './bon-ui.js';
+import { ajouterFiche, nouvelId } from './historique.js';
+import { initHistorique } from './historique-ui.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -21,7 +23,7 @@ const CLE_REGLAGES = 'frigofiche.reglages';
 const CLE_COMPTEUR = 'frigofiche.compteur';
 const CHAMPS_OPERATEUR = ['raisonSociale', 'adresseOperateur', 'siret', 'attestation', 'technicien', 'qualiteTechnicien'];
 const CHAMPS_PROFIL = ['raisonSociale', 'adresse', 'siret', 'attestation', 'prenom', 'nom', 'qualite', 'email'];
-const VERSION_APP = '1.6 (11/11/2026)';
+const VERSION_APP = '1.7 (11/11/2026)';
 const RE_VERROUILLAGE_MS = 5 * 60 * 1000; // re-verrouille après 5 min en arrière-plan
 const TITRES = ['Opérateur', 'Client et machine', 'Fluide', 'Contrôle et manipulation', 'Signatures', 'Vérification', 'Fiche prête'];
 const NB_ETAPES = 5;
@@ -30,6 +32,7 @@ let etape = 'accueil';
 let pdfGenere = null; // { file, url }
 let profil = null;
 let ficheEnCours = null; // dernière étape atteinte de la fiche en cours
+let idHistorique = null; // identifiant de la fiche en cours dans « Mes fiches »
 
 // ---------- Stockage local (protégé : navigation privée, stockage bloqué…) ----------
 const stock = {
@@ -344,6 +347,11 @@ async function generer() {
     pdfGenere = { file, url: URL.createObjectURL(file), d };
     memoriserNumero(d.ficheNo);
     ficheEnCours = null;
+    idHistorique = idHistorique || nouvelId();
+    await ajouterFiche({
+      id: idHistorique, type: 'cerfa', numero: d.ficheNo, client: d.detenteur, adresse: d.adresse, date: d.date,
+      detail: [d.fluide, d.natures.map((n) => NATURES[n]).join(', ')].filter(Boolean).join(' — '), nomFichier: nom,
+    }, octets).catch((e) => console.warn('Historique non enregistré', e));
     $('#nom-fichier').textContent = nom;
     $('#bloc-email').hidden = !profil?.email;
     $('#email-destinataire').textContent = profil?.email || '';
@@ -384,9 +392,9 @@ $('#btn-copier-email').addEventListener('click', async (e) => {
 
 // ---------- Navigation ----------
 // Écrans : 'verrou', 'accueil', 'profil', puis les étapes 1 à 7 de la fiche.
-// Onglets : « Fiche Cerfa » (accueil + étapes 1 à 7), « Bon d'intervention » (écrans bon-*), « Mon profil ».
-const ongletDe = (n) => (n === 'profil' ? 'profil' : bon.estEcran(n) ? 'bon' : n === 'verrou' ? null : 'cerfa');
-const ACCUEIL_ONGLET = { cerfa: 'accueil', bon: 'bon-accueil', profil: 'profil' };
+// Onglets : « Fiche Cerfa » (accueil + étapes 1 à 7), « Bon d'intervention » (écrans bon-*), « Mes fiches », « Mon profil ».
+const ongletDe = (n) => (['profil', 'historique'].includes(n) ? n : bon.estEcran(n) ? 'bon' : n === 'verrou' ? null : 'cerfa');
+const ACCUEIL_ONGLET = { cerfa: 'accueil', bon: 'bon-accueil', historique: 'historique', profil: 'profil' };
 const dernierEcran = { ...ACCUEIL_ONGLET };
 function majOnglets(n) {
   const onglet = ongletDe(n);
@@ -399,7 +407,7 @@ function majOnglets(n) {
     b.classList.toggle('actif', actif);
     b.setAttribute('aria-current', actif ? 'page' : 'false');
   });
-  $('#mention-cerfa').textContent = onglet === 'bon' ? "Bon d'intervention" : onglet === 'profil' ? 'Mon profil' : 'Cerfa 15497*04';
+  $('#mention-cerfa').textContent = { bon: "Bon d'intervention", historique: 'Mes fiches', profil: 'Mon profil' }[onglet] || 'Cerfa 15497*04';
 }
 $$('#onglets [data-onglet]').forEach((b) => b.addEventListener('click', () => {
   const o = b.dataset.onglet;
@@ -449,6 +457,7 @@ function allerA(n) {
   if (n === 6) recap();
   if (n === 'accueil') majAccueil();
   if (n === 'profil') majProfil();
+  if (n === 'historique') historique.afficher();
   window.scrollTo({ top: 0 });
 }
 $('#btn-suivant').addEventListener('click', (e) => {
@@ -481,6 +490,7 @@ function nouvelleFiche() {
   });
   Object.values(pads).forEach((p) => p.effacer());
   [2, 3].forEach((n) => { $(`[data-fuite="${n}"]`).hidden = true; });
+  idHistorique = null;
   preremplirOperateur();
   champ('ficheNo').value = prochainNumero();
   allerA(2);
@@ -732,6 +742,7 @@ const bon = initBon({
   partagerOuTelecharger,
   telecharger: telechargerFichier,
 });
+const historique = initHistorique({ partagerOuTelecharger, telecharger: telechargerFichier });
 
 // ---------- Logo de la société (Mon profil) ----------
 async function reduireLogo(fichier, max = 500) {

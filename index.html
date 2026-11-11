@@ -459,6 +459,23 @@
       <button type="button" class="bouton discret" id="btn-nouveau-bon-2">➕ Nouveau bon</button>
     </section>
 
+    <!-- ===================== Mes fiches (historique) ===================== -->
+    <section class="ecran" data-ecran="historique" hidden>
+      <h2 class="bonjour">🗂️ Mes fiches</h2>
+      <p class="aide">Toutes les fiches Cerfa et tous les bons générés sur ce téléphone, du plus récent au plus ancien.</p>
+      <label>Rechercher
+        <input id="recherche-fiches" type="search" autocomplete="off" placeholder="Client, numéro, adresse, date…"></label>
+      <div class="choix trio marge-haut" id="filtre-fiches">
+        <label class="option"><input type="radio" name="h_type" value="tout" checked><span>Tout</span></label>
+        <label class="option"><input type="radio" name="h_type" value="cerfa"><span>📄 Cerfa</span></label>
+        <label class="option"><input type="radio" name="h_type" value="bon"><span>🧰 Bons</span></label>
+      </div>
+      <p class="aide petit" id="compteur-fiches"></p>
+      <div class="liste-fiches" id="liste-fiches"></div>
+      <p class="message-ok" id="message-historique" role="status" hidden></p>
+      <p class="vie-privee">🔐 Les fiches restent sur ton téléphone. Si tu supprimes l'application ou les données du navigateur, elles sont effacées : pense à envoyer chaque PDF (e-mail, WhatsApp…) comme d'habitude.</p>
+    </section>
+
     <p class="erreur" id="erreur" role="alert" hidden></p>
   </main>
 
@@ -470,6 +487,7 @@
   <nav class="onglets" id="onglets" aria-label="Sections" hidden>
     <button type="button" data-onglet="cerfa"><span aria-hidden="true">📄</span>Fiche Cerfa</button>
     <button type="button" data-onglet="bon"><span aria-hidden="true">🧰</span>Bon d'intervention</button>
+    <button type="button" data-onglet="historique"><span aria-hidden="true">🗂️</span>Mes fiches</button>
     <button type="button" data-onglet="profil"><span aria-hidden="true">👤</span>Mon profil</button>
   </nav>
 

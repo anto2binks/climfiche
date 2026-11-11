@@ -213,7 +213,7 @@ body.sans-navigation { padding-bottom: calc(24px + env(safe-area-inset-bottom));
 :root { --h-onglets: 68px; }
 .onglets {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-  display: grid; grid-template-columns: repeat(3, 1fr);
+  display: grid; grid-template-columns: repeat(4, 1fr);
   padding-bottom: env(safe-area-inset-bottom);
   background: var(--fond); border-top: 2px solid var(--bordure);
 }
@@ -249,3 +249,19 @@ body.avec-onglets .navigation { bottom: calc(var(--h-onglets) + env(safe-area-in
 .recap-bloc .recap-photos img { width: 100%; height: 64px; object-fit: cover; }
 .apercu-logo { margin-top: 10px; padding: 12px; background: #fff; border: 2px solid var(--bordure); border-radius: var(--rayon); text-align: center; }
 .apercu-logo img { max-width: 100%; max-height: 90px; }
+
+/* ===== Mes fiches (historique) ===== */
+.choix.trio { grid-template-columns: repeat(3, 1fr); }
+.liste-fiches { display: grid; gap: 10px; margin-top: 12px; }
+.fiche { border: 2px solid var(--bordure); border-radius: var(--rayon); overflow: hidden; background: var(--fond); }
+.fiche-tete {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; min-height: 72px;
+  font: inherit; color: var(--texte); text-align: left; background: var(--surface); border: 0; cursor: pointer;
+}
+.fiche-tete[aria-expanded="true"] { background: var(--choix-actif); }
+.fiche-icone { font-size: 1.7rem; flex: none; }
+.fiche-texte { display: flex; flex-direction: column; min-width: 0; }
+.fiche-texte small { color: var(--texte-doux); font-size: .85rem; }
+.fiche-texte strong { overflow-wrap: anywhere; }
+.fiche-detail { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fiche-actions { padding: 2px 14px 14px; }
