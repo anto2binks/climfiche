@@ -9,25 +9,33 @@ const lire = (p) => readFileSync(new URL(p, racine));
 
 const cas = {
   ficheNo: '2026-0042',
-  raisonSociale: 'Clim Services Provence SARL\n12 avenue du Mistral, 13100 Aix-en-Provence',
+  raisonSociale: 'Clim Services Provence SARL',
+  adresseOperateur: '12 avenue du Mistral\n13100 Aix-en-Provence',
   siret: '123 456 789 00012',
   attestation: 'AC-13-2024-0815',
   technicien: 'Julien Martin',
+  qualiteTechnicien: 'Technicien frigoriste',
   detenteur: 'Boulangerie Dupont',
   adresse: '5 rue des Lilas\n13090 Aix-en-Provence',
   reference: 'Daikin RZAG100NV1',
   serie: 'E004512',
   fluide: 'R-410A',
   charge: 4.2,
-  nature: 'maintenance',
+  natures: ['controle', 'mise_en_service', 'modification'],
+  controlePeriodique: true,
   detection: false,
+  dateControle: '2026-11-10',
+  detecteurId: 'Testo 316-3 n° 61234567',
   qteChargee: 0.8,
   qteRecyclee: 0.3,
   qteRecuperee: 0.5,
   fuite: true,
-  fuiteLocalisation: 'Raccord flare liaison gaz, unité intérieure',
-  fuiteReparation: 'realisee',
-  observations: 'Resserrage du raccord et contrôle à la mousse : pas de nouvelle fuite.',
+  fuites: [
+    { localisation: 'Raccord flare liaison gaz, unité intérieure', reparation: 'realisee' },
+    { localisation: 'Vanne de service ligne liquide', reparation: 'realisee' },
+    { localisation: 'Brasure du détendeur, unité extérieure', reparation: 'afaire' },
+  ],
+  observations: 'Resserrage des raccords et contrôle à la mousse. Brasure du détendeur à reprendre.',
   date: '11/11/2026',
   signatureTechnicien: lire('test/signature-technicien.png'),
   signatureClient: lire('test/signature-client.png'),
@@ -40,3 +48,11 @@ console.log('t éq. CO2 :', calcTeq(cas.fluide, cas.charge).toFixed(2),
 const octets = await remplirCerfa(PDFLib, lire('cerfa-15497-04.pdf'), cas);
 writeFileSync(new URL('exemple/fiche-exemple.pdf', racine), octets);
 console.log('OK → exemple/fiche-exemple.pdf');
+
+// Sous les seuils (R-32, 1,2 kg = 0,81 t éq. CO2) : aucune case en [7], puis réglage activé.
+const petit = { ...cas, fluide: 'R-32', charge: 1.2, natures: ['controle'], fuite: false, fuites: [] };
+for (const premiereCase7 of [false, true]) {
+  const o = await remplirCerfa(PDFLib, lire('cerfa-15497-04.pdf'), { ...petit, premiereCase7 });
+  const nom = `exemple/sous-seuil-${premiereCase7 ? 'reglage-active' : 'defaut'}.pdf`;
+  if (process.env.SOUS_SEUIL) { writeFileSync(new URL(nom, racine), o); console.log('OK →', nom); }
+}

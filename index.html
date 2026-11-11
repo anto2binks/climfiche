@@ -32,14 +32,23 @@
     <section class="ecran" data-etape="1">
       <h2><span class="num">1</span> Opérateur</h2>
       <p class="aide">Ces informations restent enregistrées sur ce téléphone.</p>
-      <label>Raison sociale (et adresse)
-        <textarea name="raisonSociale" rows="2" required autocomplete="organization"></textarea></label>
+      <label>Raison sociale
+        <input name="raisonSociale" required autocomplete="organization"></label>
+      <label>Adresse de l'opérateur
+        <textarea name="adresseOperateur" rows="2" required autocomplete="street-address"></textarea></label>
       <label>N° SIRET
         <input name="siret" inputmode="numeric" required placeholder="14 chiffres" autocomplete="off"></label>
       <label>N° d'attestation de capacité
         <input name="attestation" required autocomplete="off"></label>
       <label>Nom du technicien
         <input name="technicien" required autocomplete="name"></label>
+      <label>Qualité du technicien
+        <input name="qualiteTechnicien" required placeholder="ex. Technicien frigoriste"></label>
+      <fieldset class="reglages">
+        <legend>Réglages</legend>
+        <label class="option interrupteur"><input type="checkbox" name="premiereCase7"><span>Cocher la première case de [7] même sous les seuils</span></label>
+        <p class="aide petit">Désactivé : aucune case du cadre [7] n'est cochée sous 2 kg (HCFC), 5 t éq. CO₂ (HFC) ou 1 kg (HFO).</p>
+      </fieldset>
     </section>
 
     <!-- 2. Client et machine -->
@@ -68,7 +77,7 @@
         <input name="charge" inputmode="decimal" required placeholder="ex. 2,5"></label>
       <div class="encart" id="encart-teq" hidden></div>
       <fieldset>
-        <legend>Nature de l'intervention</legend>
+        <legend>Nature de l'intervention <span class="facultatif">une ou plusieurs</span></legend>
         <div class="choix" id="choix-nature"></div>
       </fieldset>
       <fieldset id="bloc-periodique" hidden>
@@ -87,10 +96,18 @@
       </fieldset>
     </section>
 
-    <!-- 4. Manipulation -->
+    <!-- 4. Contrôle et manipulation -->
     <section class="ecran" data-etape="4" hidden>
-      <h2><span class="num">4</span> Manipulation du fluide</h2>
+      <h2><span class="num">4</span> Contrôle et manipulation</h2>
+      <div id="bloc-controle" hidden>
+        <h3 class="sous-titre-ecran">Contrôle d'étanchéité</h3>
+        <label>Date du contrôle
+          <input name="dateControle" type="date"></label>
+        <label>Identification du détecteur manuel de fuite
+          <input name="detecteurId" placeholder="Marque, modèle, n° de série"></label>
+      </div>
       <div id="bloc-quantites">
+        <h3 class="sous-titre-ecran">Fluide manipulé</h3>
         <label>Quantité chargée totale (kg)
           <input name="qteChargee" inputmode="decimal" placeholder="0"></label>
         <label>dont fluide recyclé (kg)
@@ -98,7 +115,7 @@
         <label>Quantité récupérée (kg)
           <input name="qteRecuperee" inputmode="decimal" placeholder="0"></label>
       </div>
-      <p class="encart" id="info-controle" hidden>Contrôle d'étanchéité : aucun fluide manipulé, les quantités ne sont pas demandées.</p>
+      <p class="encart" id="info-controle" hidden>Contrôle d'étanchéité seul : aucun fluide manipulé, les quantités ne sont pas demandées.</p>
       <fieldset>
         <legend>Fuite constatée ?</legend>
         <div class="choix duo">
@@ -107,15 +124,40 @@
         </div>
       </fieldset>
       <div id="bloc-fuite" hidden>
-        <label>Localisation de la fuite <span class="facultatif">facultatif</span>
-          <input name="fuiteLocalisation"></label>
-        <fieldset>
-          <legend>Réparation de la fuite</legend>
-          <div class="choix duo">
-            <label class="option"><input type="radio" name="fuiteReparation" value="realisee"><span>Réalisée</span></label>
-            <label class="option"><input type="radio" name="fuiteReparation" value="afaire"><span>À faire</span></label>
-          </div>
-        </fieldset>
+        <div class="fuite" data-fuite="1">
+          <label>Fuite n° 1 — localisation
+            <input name="fuiteLoc1" placeholder="ex. raccord flare unité intérieure"></label>
+          <fieldset>
+            <legend>Réparation de la fuite n° 1</legend>
+            <div class="choix duo">
+              <label class="option"><input type="radio" name="fuiteRep1" value="realisee"><span>Réalisée</span></label>
+              <label class="option"><input type="radio" name="fuiteRep1" value="afaire"><span>À faire</span></label>
+            </div>
+          </fieldset>
+        </div>
+        <div class="fuite" data-fuite="2" hidden>
+          <label>Fuite n° 2 — localisation
+            <input name="fuiteLoc2" placeholder="ex. raccord flare unité intérieure"></label>
+          <fieldset>
+            <legend>Réparation de la fuite n° 2</legend>
+            <div class="choix duo">
+              <label class="option"><input type="radio" name="fuiteRep2" value="realisee"><span>Réalisée</span></label>
+              <label class="option"><input type="radio" name="fuiteRep2" value="afaire"><span>À faire</span></label>
+            </div>
+          </fieldset>
+        </div>
+        <div class="fuite" data-fuite="3" hidden>
+          <label>Fuite n° 3 — localisation
+            <input name="fuiteLoc3" placeholder="ex. raccord flare unité intérieure"></label>
+          <fieldset>
+            <legend>Réparation de la fuite n° 3</legend>
+            <div class="choix duo">
+              <label class="option"><input type="radio" name="fuiteRep3" value="realisee"><span>Réalisée</span></label>
+              <label class="option"><input type="radio" name="fuiteRep3" value="afaire"><span>À faire</span></label>
+            </div>
+          </fieldset>
+        </div>
+        <button type="button" class="bouton discret" id="btn-ajout-fuite">➕ Ajouter une fuite</button>
       </div>
       <label>Observations <span class="facultatif">facultatif</span>
         <textarea name="observations" rows="3"></textarea></label>
@@ -125,7 +167,11 @@
     <section class="ecran" data-etape="5" hidden>
       <h2><span class="num">5</span> Signatures</h2>
       <div class="signature">
-        <div class="signature-titre"><strong>Technicien</strong> <span id="nom-tech-sig"></span></div>
+        <div class="signature-titre"><strong>Technicien</strong></div>
+        <label>Nom du signataire
+          <input name="technicienSig" data-miroir="technicien" autocomplete="name"></label>
+        <label>Qualité
+          <input name="qualiteTechnicienSig" data-miroir="qualiteTechnicien"></label>
         <canvas id="sig-tech" aria-label="Zone de signature du technicien"></canvas>
         <button type="button" class="lien" data-effacer="sig-tech">Effacer</button>
       </div>
@@ -133,8 +179,8 @@
         <div class="signature-titre"><strong>Client</strong> <span id="mention-client"></span></div>
         <label>Nom du signataire
           <input name="signataireClient"></label>
-        <label>Qualité <span class="facultatif">facultatif</span>
-          <input name="qualiteClient" placeholder="ex. Gérant"></label>
+        <label>Qualité
+          <input name="qualiteClient" placeholder="ex. Gérant, responsable technique"></label>
         <canvas id="sig-client" aria-label="Zone de signature du client"></canvas>
         <button type="button" class="lien" data-effacer="sig-client">Effacer</button>
       </div>

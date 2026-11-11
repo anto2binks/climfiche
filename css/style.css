@@ -138,7 +138,7 @@ fieldset.invalide .option span { border-color: var(--erreur); }
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
   background: var(--fond); border-top: 2px solid var(--bordure);
 }
-.navigation .bouton { margin: 0; }
+.navigation .bouton { margin: 0; white-space: nowrap; padding-inline: 8px; }
 .navigation.seul { grid-template-columns: 1fr; }
 
 .erreur { color: var(--erreur); background: var(--erreur-fond); border: 2px solid var(--erreur); border-radius: var(--rayon); padding: 12px 14px; font-weight: 700; }
@@ -153,3 +153,13 @@ fieldset.invalide .option span { border-color: var(--erreur); }
 .recap-bloc img { max-width: 100%; height: 60px; background: #fff; border-radius: 6px; margin-top: 4px; }
 
 @media (min-width: 700px) { body { font-size: 18px; } }
+
+/* Sous-parties d'un écran, réglages, fuites multiples */
+.sous-titre-ecran { font-size: 1.1rem; margin: 20px 0 0; padding-bottom: 4px; border-bottom: 2px solid var(--bordure); }
+.reglages { margin-top: 28px; padding: 12px; border: 2px dashed var(--bordure); border-radius: var(--rayon); }
+.reglages legend { padding: 0 6px; }
+.interrupteur span { justify-content: flex-start; text-align: left; }
+.option input[type="checkbox"]:not(:checked) + span::before { content: "☐ "; margin-right: 4px; }
+.option input[type="checkbox"]:checked + span::before { content: "☑ "; }
+.aide.petit { font-size: .85rem; margin: 8px 0 0; }
+.fuite { margin-top: 6px; padding: 4px 12px 12px; border-left: 4px solid var(--accent); background: var(--surface); border-radius: 0 var(--rayon) var(--rayon) 0; }

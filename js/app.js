@@ -1,6 +1,7 @@
 // FrigoFiche — application (tout reste sur le téléphone, aucun envoi serveur).
 import {
   FLUIDES, NATURES, calcTeq, signatureDetenteurObligatoire, frequenceControle, fr, remplirCerfa,
+  sansManipulation, avecControle,
 } from './cerfa.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -9,8 +10,11 @@ const champ = (nom) => document.querySelector(`[name="${nom}"]`);
 
 const CLE_OPERATEUR = 'frigofiche.operateur';
 const CLE_COMPTEUR = 'frigofiche.compteur';
-const CHAMPS_OPERATEUR = ['raisonSociale', 'siret', 'attestation', 'technicien'];
-const TITRES = ['Opérateur', 'Client et machine', 'Fluide', 'Manipulation', 'Signatures', 'Vérification', 'Fiche prête'];
+const CHAMPS_OPERATEUR = ['raisonSociale', 'adresseOperateur', 'siret', 'attestation', 'technicien', 'qualiteTechnicien'];
+// Mémorisés aussi, mais pas obligatoires pour sauter l'écran 1.
+const CHAMPS_MEMORISES = [...CHAMPS_OPERATEUR, 'detecteurId'];
+const CLE_REGLAGES = 'frigofiche.reglages';
+const TITRES = ['Opérateur', 'Client et machine', 'Fluide', 'Contrôle et manipulation', 'Signatures', 'Vérification', 'Fiche prête'];
 const NB_ETAPES = 5;
 
 let etape = 1;
@@ -29,7 +33,13 @@ const nombre = (v) => {
   return s === '' ? NaN : Number(s);
 };
 const radio = (nom) => document.querySelector(`[name="${nom}"]:checked`)?.value ?? '';
+const coches = (nom) => $$(`[name="${nom}"]:checked`).map((el) => el.value);
 const aujourdhui = () => new Date().toLocaleDateString('fr-FR');
+const aujourdhuiISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const dateFr = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split('-').reverse().join('/') : '');
 
 function prochainNumero() {
   const annee = new Date().getFullYear();
@@ -43,18 +53,18 @@ function memoriserNumero(numero) {
 }
 
 // ---------- Choix (fluides, natures) ----------
-function creerOptions(conteneur, nom, valeurs) {
+function creerOptions(conteneur, nom, valeurs, type = 'radio') {
   conteneur.innerHTML = '';
   for (const [valeur, libelle] of valeurs) {
     const l = document.createElement('label');
     l.className = 'option';
-    l.innerHTML = `<input type="radio" name="${nom}" value="${valeur}"><span></span>`;
+    l.innerHTML = `<input type="${type}" name="${nom}" value="${valeur}"><span></span>`;
     l.querySelector('span').textContent = libelle;
     conteneur.append(l);
   }
 }
 creerOptions($('#choix-fluide'), 'fluide', Object.keys(FLUIDES).map((f) => [f, f]));
-creerOptions($('#choix-nature'), 'nature', Object.entries(NATURES));
+creerOptions($('#choix-nature'), 'nature', Object.entries(NATURES), 'checkbox');
 
 // ---------- Pavé de signature ----------
 class PaveSignature {
@@ -132,18 +142,25 @@ $$('[data-effacer]').forEach((b) => b.addEventListener('click', () => pads[b.dat
 // ---------- Données ----------
 function donnees() {
   const v = (n) => champ(n).value.trim();
-  const nature = radio('nature');
+  const natures = coches('nature');
+  const sansQte = sansManipulation(natures);
   return {
-    raisonSociale: v('raisonSociale'), siret: v('siret'), attestation: v('attestation'), technicien: v('technicien'),
+    raisonSociale: v('raisonSociale'), adresseOperateur: v('adresseOperateur'), siret: v('siret'),
+    attestation: v('attestation'), technicien: v('technicien'), qualiteTechnicien: v('qualiteTechnicien'),
     detenteur: v('detenteur'), adresse: v('adresse'), reference: v('reference'), serie: v('serie'), ficheNo: v('ficheNo'),
-    fluide: radio('fluide'), charge: nombre(v('charge')), nature,
+    fluide: radio('fluide'), charge: nombre(v('charge')), natures,
     controlePeriodique: radio('controlePeriodique') !== 'non',
     detection: radio('detection') === '' ? null : radio('detection') === 'oui',
-    qteChargee: nature === 'controle' ? null : (nombre(v('qteChargee')) || 0),
-    qteRecyclee: nature === 'controle' ? null : (nombre(v('qteRecyclee')) || 0),
-    qteRecuperee: nature === 'controle' ? null : (nombre(v('qteRecuperee')) || 0),
+    dateControle: v('dateControle'), detecteurId: v('detecteurId'),
+    qteChargee: sansQte ? null : (nombre(v('qteChargee')) || 0),
+    qteRecyclee: sansQte ? null : (nombre(v('qteRecyclee')) || 0),
+    qteRecuperee: sansQte ? null : (nombre(v('qteRecuperee')) || 0),
     fuite: radio('fuite') === '' ? null : radio('fuite') === 'oui',
-    fuiteLocalisation: v('fuiteLocalisation'), fuiteReparation: radio('fuiteReparation'),
+    fuites: [1, 2, 3]
+      .filter((n) => !$(`[data-fuite="${n}"]`).hidden)
+      .map((n) => ({ localisation: v(`fuiteLoc${n}`), reparation: radio(`fuiteRep${n}`) }))
+      .filter((x) => x.localisation || x.reparation),
+    premiereCase7: champ('premiereCase7').checked,
     observations: v('observations'),
     signataireClient: v('signataireClient'), qualiteClient: v('qualiteClient'),
     date: aujourdhui(),
@@ -170,36 +187,59 @@ function majFluide() {
   encart.append(gros, info);
 }
 function majNature() {
-  const controle = radio('nature') === 'controle';
+  const natures = coches('nature');
+  const controle = avecControle(natures);
+  const seul = sansManipulation(natures);
   $('#bloc-periodique').hidden = !controle;
-  $('#bloc-quantites').hidden = controle;
-  $('#info-controle').hidden = !controle;
+  $('#bloc-controle').hidden = !controle;
+  $('#bloc-quantites').hidden = seul;
+  $('#info-controle').hidden = !seul;
+  if (controle && !champ('dateControle').value) champ('dateControle').value = aujourdhuiISO();
 }
-function majFuite() { $('#bloc-fuite').hidden = radio('fuite') !== 'oui'; }
+function majFuite() {
+  $('#bloc-fuite').hidden = radio('fuite') !== 'oui';
+  const visibles = [1, 2, 3].filter((n) => !$(`[data-fuite="${n}"]`).hidden).length;
+  $('#btn-ajout-fuite').hidden = visibles >= 3;
+}
+$('#btn-ajout-fuite').addEventListener('click', () => {
+  const suivante = [1, 2, 3].find((n) => $(`[data-fuite="${n}"]`).hidden);
+  if (suivante) {
+    $(`[data-fuite="${suivante}"]`).hidden = false;
+    champ(`fuiteLoc${suivante}`).focus();
+  }
+  majFuite();
+});
 function majSignatures() {
   const d = donnees();
-  $('#nom-tech-sig').textContent = d.technicien ? `— ${d.technicien}` : '';
+  champ('technicienSig').value = d.technicien;
+  champ('qualiteTechnicienSig').value = d.qualiteTechnicien;
   const oblig = signatureDetenteurObligatoire(d.fluide, d.charge);
   $('#mention-client').innerHTML = oblig
     ? '<span class="badge oblig">obligatoire</span>'
     : '<span class="badge facult">facultative</span> <small>(moins de 3 kg HCFC / 5 t éq. CO₂)</small>';
   if (!champ('signataireClient').value) champ('signataireClient').value = d.detenteur;
 }
+function memoriser() {
+  stock.ecrire(CLE_OPERATEUR, Object.fromEntries(CHAMPS_MEMORISES.map((c) => [c, champ(c).value])));
+}
 
 document.addEventListener('change', (e) => {
   const n = e.target.name;
   if (['fluide', 'detection'].includes(n)) majFluide();
   if (n === 'nature') majNature();
+  if (n === 'premiereCase7') stock.ecrire(CLE_REGLAGES, { premiereCase7: e.target.checked });
   if (n === 'fuite') majFuite();
   e.target.closest('.invalide')?.classList.remove('invalide');
+  if (!$('.invalide')) $('#erreur').hidden = true;
 });
 document.addEventListener('input', (e) => {
   const n = e.target.name;
   if (n === 'charge') majFluide();
   e.target.classList.remove('invalide');
-  if (CHAMPS_OPERATEUR.includes(n)) {
-    stock.ecrire(CLE_OPERATEUR, Object.fromEntries(CHAMPS_OPERATEUR.map((c) => [c, champ(c).value])));
-  }
+  if (!$('.invalide')) $('#erreur').hidden = true;
+  // Nom et qualité du technicien saisis à l'écran 5 : recopiés dans les champs de l'écran 1.
+  if (e.target.dataset.miroir) champ(e.target.dataset.miroir).value = e.target.value;
+  if (CHAMPS_MEMORISES.includes(n) || e.target.dataset.miroir) memoriser();
 });
 
 // ---------- Validation ----------
@@ -210,9 +250,11 @@ function valider(n) {
   const choix = (nom, msg) => { if (!radio(nom)) fautes.push([champ(nom).closest('fieldset'), msg]); };
   if (n === 1) {
     requis('raisonSociale', 'Indiquez la raison sociale.');
+    requis('adresseOperateur', "Indiquez l'adresse de l'opérateur.");
     if (d.siret.replace(/\s/g, '').length !== 14 || /\D/.test(d.siret.replace(/\s/g, ''))) fautes.push([champ('siret'), 'Le SIRET doit comporter 14 chiffres.']);
     requis('attestation', "Indiquez le n° d'attestation de capacité.");
     requis('technicien', 'Indiquez le nom du technicien.');
+    requis('qualiteTechnicien', 'Indiquez la qualité du technicien.');
   }
   if (n === 2) {
     requis('detenteur', 'Indiquez le nom du détenteur.');
@@ -223,11 +265,15 @@ function valider(n) {
   if (n === 3) {
     choix('fluide', 'Choisissez le fluide.');
     if (!(d.charge > 0)) fautes.push([champ('charge'), 'Indiquez la charge totale (kg), ex. 2,5.']);
-    choix('nature', "Choisissez la nature de l'intervention.");
+    choix('nature', "Cochez au moins une nature d'intervention.");
     choix('detection', 'Indiquez si un système de détection de fuites est présent.');
   }
   if (n === 4) {
-    if (d.nature !== 'controle') {
+    if (avecControle(d.natures)) {
+      requis('dateControle', 'Indiquez la date du contrôle.');
+      requis('detecteurId', "Indiquez l'identification du détecteur manuel de fuite.");
+    }
+    if (!sansManipulation(d.natures)) {
       for (const nom of ['qteChargee', 'qteRecyclee', 'qteRecuperee']) {
         const x = nombre(champ(nom).value);
         if (champ(nom).value.trim() && (Number.isNaN(x) || x < 0)) fautes.push([champ(nom), 'Quantité invalide (ex. 0,5).']);
@@ -235,9 +281,23 @@ function valider(n) {
       if (d.qteRecyclee > d.qteChargee) fautes.push([champ('qteRecyclee'), 'Le fluide recyclé ne peut pas dépasser la quantité chargée.']);
     }
     choix('fuite', 'Indiquez si une fuite a été constatée.');
+    if (d.fuite) {
+      [1, 2, 3].filter((k) => !$(`[data-fuite="${k}"]`).hidden).forEach((k) => {
+        const loc = champ(`fuiteLoc${k}`).value.trim();
+        const rep = radio(`fuiteRep${k}`);
+        if (k === 1 && !loc) fautes.push([champ('fuiteLoc1'), 'Indiquez la localisation de la fuite.']);
+        if (loc && !rep) fautes.push([champ(`fuiteRep${k}`).closest('fieldset'), `Réparation de la fuite n° ${k} : réalisée ou à faire ?`]);
+      });
+    }
   }
   if (n === 5) {
+    requis('technicienSig', 'Indiquez le nom du technicien.');
+    requis('qualiteTechnicienSig', 'Indiquez la qualité du technicien.');
     if (pads['sig-tech'].vide) fautes.push([$('#sig-tech'), 'La signature du technicien est requise.']);
+    if (!pads['sig-client'].vide || signatureDetenteurObligatoire(d.fluide, d.charge)) {
+      requis('signataireClient', 'Indiquez le nom du signataire client.');
+      requis('qualiteClient', 'Indiquez la qualité du signataire client.');
+    }
     if (signatureDetenteurObligatoire(d.fluide, d.charge) && pads['sig-client'].vide) {
       fautes.push([$('#sig-client'), 'La signature du client est obligatoire pour cette charge.']);
     }
@@ -258,20 +318,24 @@ function recap() {
   const f = FLUIDES[d.fluide];
   const sigT = pads['sig-tech'].png(), sigC = pads['sig-client'].png();
   const blocs = [
-    [1, 'Opérateur', [['Raison sociale', d.raisonSociale], ['SIRET', d.siret], ['Attestation de capacité', d.attestation], ['Technicien', d.technicien]]],
+    [1, 'Opérateur', [['Raison sociale', d.raisonSociale], ['Adresse', d.adresseOperateur], ['SIRET', d.siret], ['Attestation de capacité', d.attestation],
+      ['Case [7] sous les seuils', d.premiereCase7 ? 'Première case cochée' : 'Aucune case']]],
     [2, 'Client et machine', [['N° de fiche', d.ficheNo], ['Détenteur', d.detenteur], ['Adresse', d.adresse], ['Référence', d.reference], ['N° de série', d.serie || '—']]],
     [3, 'Fluide', [['Fluide', `${d.fluide} (${f.type})`], ['Charge totale', `${fr(d.charge)} kg`],
       ['Tonnage', f.type === 'HCFC' ? '— (HCFC)' : `${fr(calcTeq(d.fluide, d.charge))} t éq. CO₂`],
-      ['Intervention', NATURES[d.nature] + (d.nature === 'controle' ? (d.controlePeriodique ? ' périodique' : ' non périodique') : '')],
+      ['Intervention', d.natures.map((n) => NATURES[n] + (n === 'controle' ? (d.controlePeriodique ? ' périodique' : ' non périodique') : '')).join('\n')],
       ['Détection permanente', d.detection ? 'Oui' : 'Non']]],
-    [4, 'Manipulation', [
-      ...(d.nature === 'controle' ? [['Quantités', 'Sans objet (contrôle d\'étanchéité)']] : [
+    [4, 'Contrôle et manipulation', [
+      ...(avecControle(d.natures) ? [['Date du contrôle', dateFr(d.dateControle)], ['Détecteur manuel', d.detecteurId]] : []),
+      ...(sansManipulation(d.natures) ? [['Quantités', 'Sans objet (contrôle d\'étanchéité seul)']] : [
         ['Quantité chargée', `${fr(d.qteChargee)} kg`], ['dont recyclé', `${fr(d.qteRecyclee)} kg`],
         ['dont vierge (calculé)', `${fr(Math.max(0, d.qteChargee - d.qteRecyclee))} kg`], ['Quantité récupérée', `${fr(d.qteRecuperee)} kg`]]),
       ['Fuite constatée', d.fuite ? 'Oui' : 'Non'],
-      ...(d.fuite && d.fuiteLocalisation ? [['Localisation', d.fuiteLocalisation], ['Réparation', { realisee: 'Réalisée', afaire: 'À faire' }[d.fuiteReparation] || '—']] : []),
+      ...(d.fuite ? d.fuites.map((x, i) => [`Fuite n° ${i + 1}`, `${x.localisation || '—'} — ${{ realisee: 'réparée', afaire: 'réparation à faire' }[x.reparation] || '?'}`]) : []),
       ['Observations', d.observations || '—']]],
-    [5, 'Signatures', [['Date', d.date], ['Technicien', sigT], ['Client', sigC ? sigC : 'Non signée'], ['Signataire client', sigC ? d.signataireClient : '—']]],
+    [5, 'Signatures', [['Date', d.date],
+      ['Technicien', `${d.technicien} — ${d.qualiteTechnicien}`], ['Signature technicien', sigT],
+      ['Signataire client', [d.signataireClient, d.qualiteClient].filter(Boolean).join(' — ') || '—'], ['Signature client', sigC ? sigC : 'Non signée']]],
   ];
   const racine = $('#recap');
   racine.innerHTML = '';
@@ -383,11 +447,12 @@ $('#btn-retour').addEventListener('click', () => allerA(Math.max(1, etape - 1)))
 
 function nouvelleFiche() {
   $$('main input, main textarea').forEach((el) => {
-    if (CHAMPS_OPERATEUR.includes(el.name)) return;
-    if (el.type === 'radio') el.checked = el.name === 'controlePeriodique' && el.value === 'oui';
+    if (CHAMPS_MEMORISES.includes(el.name) || el.name === 'premiereCase7' || el.dataset.miroir) return;
+    if (el.type === 'radio' || el.type === 'checkbox') el.checked = el.name === 'controlePeriodique' && el.value === 'oui';
     else el.value = '';
   });
   Object.values(pads).forEach((p) => p.effacer());
+  [2, 3].forEach((n) => { $(`[data-fuite="${n}"]`).hidden = true; });
   champ('ficheNo').value = prochainNumero();
   const operateurOk = CHAMPS_OPERATEUR.every((c) => champ(c).value.trim());
   allerA(operateurOk ? 2 : 1);
@@ -395,7 +460,8 @@ function nouvelleFiche() {
 
 // ---------- Démarrage ----------
 const op = stock.lire(CLE_OPERATEUR);
-if (op) CHAMPS_OPERATEUR.forEach((c) => { if (op[c]) champ(c).value = op[c]; });
+if (op) CHAMPS_MEMORISES.forEach((c) => { if (op[c]) champ(c).value = op[c]; });
+champ('premiereCase7').checked = !!stock.lire(CLE_REGLAGES)?.premiereCase7;
 champ('ficheNo').value = prochainNumero();
 allerA(op && CHAMPS_OPERATEUR.every((c) => op[c]) ? 2 : 1);
 
