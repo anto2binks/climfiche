@@ -28,6 +28,11 @@
     <p id="etape-texte">Étape 1 sur 5 — Opérateur</p>
   </nav>
 
+  <div class="bandeau-maj" id="bandeau-maj" role="status" hidden>
+    Nouvelle version de FrigoFiche disponible.
+    <button type="button" class="bouton" id="btn-maj">🔄 Mettre à jour</button>
+    <small>La fiche en cours sera perdue : termine-la d'abord si besoin.</small>
+  </div>
   <main id="app">
     <!-- Verrouillage -->
     <section class="ecran" data-ecran="verrou" hidden>
@@ -119,6 +124,7 @@
         <p class="message-ok" id="message-profil" role="status" hidden></p>
       </div>
       <input type="file" id="fichier-import" accept=".json,application/json" hidden>
+      <p class="aide petit centre" id="version-app"></p>
     </section>
 
     <!-- 1. Opérateur -->

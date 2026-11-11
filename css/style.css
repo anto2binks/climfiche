@@ -202,3 +202,9 @@ body.sans-navigation { padding-bottom: calc(24px + env(safe-area-inset-bottom));
   background: var(--surface); border: 2px solid var(--bordure); border-radius: 50px; cursor: pointer;
 }
 .clavier button:active { background: var(--choix-actif); }
+
+/* Bandeau de mise à jour */
+.bandeau-maj { max-width: 640px; margin: 10px auto 0; padding: 12px 14px; border-radius: var(--rayon);
+  background: var(--encart); border: 2px solid var(--encart-bordure); font-weight: 700; }
+.bandeau-maj .bouton { margin-top: 8px; }
+#version-app { margin-top: 24px; }

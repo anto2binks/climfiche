@@ -19,6 +19,7 @@ const CLE_REGLAGES = 'frigofiche.reglages';
 const CLE_COMPTEUR = 'frigofiche.compteur';
 const CHAMPS_OPERATEUR = ['raisonSociale', 'adresseOperateur', 'siret', 'attestation', 'technicien', 'qualiteTechnicien'];
 const CHAMPS_PROFIL = ['raisonSociale', 'adresse', 'siret', 'attestation', 'prenom', 'nom', 'qualite', 'email'];
+const VERSION_APP = '1.5 (11/11/2026)';
 const RE_VERROUILLAGE_MS = 5 * 60 * 1000; // re-verrouille après 5 min en arrière-plan
 const TITRES = ['Opérateur', 'Client et machine', 'Fluide', 'Contrôle et manipulation', 'Signatures', 'Vérification', 'Fiche prête'];
 const NB_ETAPES = 5;
@@ -555,6 +556,7 @@ function profilDepuisAnciennesDonnees() {
 }
 function majProfil() {
   const creation = !profil;
+  $('#version-app').textContent = `FrigoFiche version ${VERSION_APP}`;
   $('#profil-titre').textContent = creation ? 'Crée ton profil' : 'Mon profil';
   $('#profil-intro').textContent = creation
     ? "Ces informations rempliront automatiquement chaque fiche. Tu ne les saisis qu'une fois."
@@ -750,6 +752,22 @@ async function demarrer() {
 }
 demarrer();
 
+// ---------- Mises à jour de l'application ----------
+// Le service worker revérifie les fichiers à chaque ouverture. Quand une nouvelle version
+// est installée, l'appli se recharge (ou propose de le faire si une fiche est en cours).
+// Le profil n'est jamais touché par une mise à jour.
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  const avaitControleur = !!navigator.serviceWorker.controller;
+  let rechargement = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!avaitControleur || rechargement) return;
+    const ficheOuverte = typeof etape === 'number' && etape < 7;
+    if (!ficheOuverte) { rechargement = true; location.reload(); return; }
+    $('#bandeau-maj').hidden = false;
+  });
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    // L'appli installée est souvent « réveillée » sans être rechargée : on vérifie à chaque retour.
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => {});
 }
+$('#btn-maj').addEventListener('click', () => location.reload());
