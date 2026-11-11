@@ -21,6 +21,22 @@ export const NATURES = {
   demantelement: 'Démantèlement',
 };
 
+/** Natures sélectionnées (tableau ; accepte aussi l'ancienne forme « nature » unique). */
+export function naturesDe(d) {
+  if (Array.isArray(d.natures)) return d.natures;
+  return d.nature ? [d.nature] : [];
+}
+
+/** Vrai si l'intervention est uniquement un contrôle d'étanchéité (aucun fluide manipulé). */
+export function sansManipulation(natures) {
+  return natures.length > 0 && natures.every((n) => n === 'controle');
+}
+
+/** Vrai si un contrôle d'étanchéité fait partie de l'intervention. */
+export function avecControle(natures) {
+  return natures.includes('controle');
+}
+
 /** Charge en tonnes équivalent CO2. */
 export function calcTeq(fluide, chargeKg) {
   const f = FLUIDES[fluide];
@@ -88,12 +104,15 @@ export async function remplirCerfa(PDFLib, modele, d) {
   const cocher = (nom) => form.getCheckBox(nom).check();
 
   const f = FLUIDES[d.fluide];
-  const controle = d.nature === 'controle';
+  const natures = naturesDe(d);
+  const controle = sansManipulation(natures);
   const teq = calcTeq(d.fluide, d.charge);
 
   // En-tête
   texte('Fiche_no', d.ficheNo, 9);
-  texte('Operateur', [d.raisonSociale, d.siret && `SIRET : ${d.siret}`].filter(Boolean).join('\n'), 8);
+  const lignesOp = [d.raisonSociale, d.adresseOperateur, d.siret && `SIRET : ${d.siret}`]
+    .filter(Boolean).join('\n');
+  texte('Operateur', lignesOp, lignesOp.split('\n').length > 4 ? 6.5 : 8);
   texte('Attestation_no', d.attestation, 8);
   texte('Detenteur', [d.detenteur, d.adresse].filter(Boolean).join('\n'), 8);
 
@@ -105,7 +124,7 @@ export async function remplirCerfa(PDFLib, modele, d) {
   if (f.type !== 'HCFC') texte('Equipement_teqCO2', fr(teq), 7);
 
   // [4] Nature de l'intervention
-  const caseNature = {
+  const casesNature = {
     assemblage: 'Case_Assemblage',
     mise_en_service: 'Case_MiseService',
     modification: 'Case_Modif',
@@ -113,18 +132,31 @@ export async function remplirCerfa(PDFLib, modele, d) {
     controle: d.controlePeriodique === false ? 'Case_CtrlNonPerio' : 'Case_CtrlPerio',
     demantelement: 'Case_Demantel',
     reparation: 'Case_Autre',
-  }[d.nature];
-  if (caseNature) cocher(caseNature);
-  if (d.nature === 'reparation') texte('Autre', 'Réparation', 6);
+  };
+  for (const n of natures) if (casesNature[n]) cocher(casesNature[n]);
+  if (natures.includes('reparation')) texte('Autre', 'Réparation', 6);
+
+  // [5] Détecteur manuel de fuite et date du contrôle (si contrôle d'étanchéité)
+  if (avecControle(natures)) {
+    texte('Detecteur_ID', d.detecteurId, 8);
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d.dateControle || '');
+    if (m) {
+      texte('Controle_Jour', m[3], 7);
+      texte('Controle_Mois', m[2], 7);
+      texte('Controle_Annee', m[1], 7);
+    }
+  }
 
   // [6] Système permanent de détection de fuites (boutons radio OUI = 1, NON = 2)
   form.getRadioGroup('Bouton_Oui').select(d.detection ? '1' : '2');
 
   // [7] Quantité de fluide / [8]-[9] fréquence du contrôle
+  // Sous les seuils : aucune case, sauf si le réglage « Cocher la première case de [7] » est activé.
   const col = seuilQuantite(d.fluide, d.charge);
+  const prefixe = { HCFC: 'Case_HCFC_', HFC: 'Case_HFC_', HFO: 'Case_HFO_' }[f.type];
+  const suffixes = { HCFC: ['2', '30', '300'], HFC: ['5', '50', '500'], HFO: ['1', '10', '100'] }[f.type];
+  if (!col && d.premiereCase7) cocher(prefixe + suffixes[0]);
   if (col) {
-    const prefixe = { HCFC: 'Case_HCFC_', HFC: 'Case_HFC_', HFO: 'Case_HFO_' }[f.type];
-    const suffixes = { HCFC: ['2', '30', '300'], HFC: ['5', '50', '500'], HFO: ['1', '10', '100'] }[f.type];
     cocher(prefixe + suffixes[col - 1]);
     if (!d.detection) cocher(['Case_Sans_12m', 'Case_Sans_6m', 'Case_Sans_3m'][col - 1]);
     else if (f.type !== 'HCFC') cocher(['Case_Avec_24m', 'Case_Avec_12m', 'Case_Avec_6m'][col - 1]);
@@ -132,10 +164,14 @@ export async function remplirCerfa(PDFLib, modele, d) {
 
   // [10] Fuites constatées
   cocher(d.fuite ? 'Case_Fuite_Oui' : 'Case_Fuite_Non');
-  if (d.fuite && d.fuiteLocalisation) {
-    texte('Fuite_Loca_1', d.fuiteLocalisation, 8);
-    if (d.fuiteReparation === 'realisee') cocher('Case_Rep_Fuite1_realisee');
-    if (d.fuiteReparation === 'afaire') cocher('Case_Rep_Fuite1_AFaire');
+  if (d.fuite) {
+    const fuites = (d.fuites || []).filter((x) => x && (x.localisation || x.reparation)).slice(0, 3);
+    fuites.forEach((x, i) => {
+      const n = i + 1;
+      texte(`Fuite_Loca_${n}`, x.localisation, 8);
+      if (x.reparation === 'realisee') cocher(`Case_Rep_Fuite${n}_realisee`);
+      if (x.reparation === 'afaire') cocher(`Case_Rep_Fuite${n}_AFaire`);
+    });
   }
 
   // [11] Manipulation du fluide (rien pour un simple contrôle d'étanchéité)
@@ -154,9 +190,9 @@ export async function remplirCerfa(PDFLib, modele, d) {
 
   // Signatures
   texte('Sign_Operateur_Nom', d.technicien, 8);
-  texte('Sign_Operateur_Qualite', d.qualiteTechnicien || 'Technicien frigoriste', 8);
+  texte('Sign_Operateur_Qualite', d.qualiteTechnicien, 8);
   texte('Sign_Operateur_Date', d.date, 8);
-  texte('Sign_Detenteur_Nom', d.signataireClient || (d.signatureClient ? d.detenteur : ''), 8);
+  texte('Sign_Detenteur_Nom', d.signataireClient, 8);
   texte('Sign_Detenteur_Qualite', d.qualiteClient, 8);
   if (d.signatureClient) texte('Sign_Detenteur_Date', d.date, 8);
 
