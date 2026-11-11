@@ -67,6 +67,9 @@ creerOptions($('#choix-fluide'), 'fluide', Object.keys(FLUIDES).map((f) => [f, f
 creerOptions($('#choix-nature'), 'nature', Object.entries(NATURES), 'checkbox');
 
 // ---------- Pavé de signature ----------
+// Épaisseur du trait proportionnelle à la largeur du canevas (et non à l'écran) :
+// 0,9 % de la largeur, soit environ 3 px sur un canevas de 340 px.
+const EPAISSEUR_RELATIVE = 0.009;
 class PaveSignature {
   constructor(canvas) {
     this.canvas = canvas;
@@ -103,13 +106,14 @@ class PaveSignature {
     this.canvas.height = Math.round(r.height * dpr);
     this.dessiner();
   }
-  static tracer(ctx, traits, echelle, dx = 0, dy = 0) {
+  get epaisseur() { return this.canvas.getBoundingClientRect().width * EPAISSEUR_RELATIVE || 3; }
+  static tracer(ctx, traits, echelle, epaisseur, dx = 0, dy = 0) {
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.strokeStyle = '#0a2a6b'; ctx.fillStyle = '#0a2a6b';
-    ctx.lineWidth = 3 * echelle;
+    ctx.lineWidth = epaisseur * echelle;
     for (const t of traits) {
       ctx.beginPath();
-      if (t.length === 1) { ctx.arc((t[0][0] - dx) * echelle, (t[0][1] - dy) * echelle, 1.6 * echelle, 0, 7); ctx.fill(); continue; }
+      if (t.length === 1) { ctx.arc((t[0][0] - dx) * echelle, (t[0][1] - dy) * echelle, (epaisseur / 2) * echelle, 0, 7); ctx.fill(); continue; }
       t.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, (x - dx) * echelle, (y - dy) * echelle));
       ctx.stroke();
     }
@@ -117,22 +121,26 @@ class PaveSignature {
   dessiner() {
     const ctx = this.canvas.getContext('2d');
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    PaveSignature.tracer(ctx, this.traits, window.devicePixelRatio || 1);
+    PaveSignature.tracer(ctx, this.traits, this.canvas.width / (this.canvas.getBoundingClientRect().width || 1), this.epaisseur);
   }
   get vide() { return this.traits.length === 0; }
   effacer() { this.traits = []; this.dessiner(); }
-  /** PNG transparent recadré sur l'encre (pour remplir la case du PDF). */
+  /** Tracé pour le PDF : copie des traits (coordonnées du canevas). */
+  trace() {
+    return this.vide ? null : { traits: this.traits.map((t) => t.map((p) => [p[0], p[1]])) };
+  }
+  /** Aperçu PNG recadré sur l'encre (récapitulatif). */
   png() {
     if (this.vide) return null;
     const pts = this.traits.flat();
-    const marge = 3;
+    const marge = this.epaisseur;
     const x0 = Math.min(...pts.map((p) => p[0])) - marge, y0 = Math.min(...pts.map((p) => p[1])) - marge;
     const x1 = Math.max(...pts.map((p) => p[0])) + marge, y1 = Math.max(...pts.map((p) => p[1])) + marge;
     const echelle = 3;
     const c = document.createElement('canvas');
     c.width = Math.max(1, Math.ceil((x1 - x0) * echelle));
     c.height = Math.max(1, Math.ceil((y1 - y0) * echelle));
-    PaveSignature.tracer(c.getContext('2d'), this.traits, echelle, x0, y0);
+    PaveSignature.tracer(c.getContext('2d'), this.traits, echelle, this.epaisseur, x0, y0);
     return c.toDataURL('image/png');
   }
 }
@@ -383,8 +391,8 @@ async function generer() {
   bouton.disabled = true; bouton.textContent = 'Génération…';
   try {
     const d = donnees();
-    d.signatureTechnicien = pads['sig-tech'].png();
-    d.signatureClient = pads['sig-client'].png();
+    d.signatureTechnicien = pads['sig-tech'].trace();
+    d.signatureClient = pads['sig-client'].trace();
     const octets = await remplirCerfa(window.PDFLib, await modele(), d);
     const nom = nomFichier(d);
     const file = new File([octets], nom, { type: 'application/pdf' });

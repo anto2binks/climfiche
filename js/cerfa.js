@@ -37,6 +37,67 @@ export function avecControle(natures) {
   return natures.includes('controle');
 }
 
+// Zones de signature [x1, y1, x2, y2] en points PDF : partie droite des cases
+// « Date et signature » (Opérateur [127,45,337,63], Détenteur [345,44,554,63]),
+// la date étant écrite à gauche. Les deux zones ont la même taille (157 × 18 pt).
+export const CASE_SIGNATURE_OPERATEUR = [180, 45, 337, 63];
+export const CASE_SIGNATURE_DETENTEUR = [397, 44.5, 554, 62.5];
+const SIGNATURE_EPAISSEUR = 0.9; // pt, identique pour les deux signatures
+const SIGNATURE_MARGE = 1.5;     // pt, autour du tracé
+const SIGNATURE_COULEUR = [10 / 255, 42 / 255, 107 / 255];
+
+/** Rectangle englobant le tracé (coordonnées du canevas). */
+export function cadreTrace(traits) {
+  const pts = traits.flat();
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const x0 = Math.min(...xs), y0 = Math.min(...ys);
+  return { x0, y0, w: Math.max(...xs) - x0, h: Math.max(...ys) - y0 };
+}
+
+/**
+ * Dessine une signature dans une case du PDF.
+ * sig = { traits: [[[x, y], …], …] } (tracé du canevas) ; une image PNG reste acceptée.
+ */
+async function placerSignature(PDFLib, pdf, page, sig, [x1, y1, x2, y2]) {
+  if (!sig) return;
+  const { rgb, LineCapStyle, LineJoinStyle, pushGraphicsState, popGraphicsState, setLineJoin } = PDFLib;
+  const bw = x2 - x1, bh = y2 - y1;
+
+  if (!sig.traits) { // image PNG : ajustée et centrée dans la case
+    const img = await pdf.embedPng(sig);
+    const k = Math.min((bw - 2 * SIGNATURE_MARGE) / img.width, (bh - 2 * SIGNATURE_MARGE) / img.height);
+    const w = img.width * k, h = img.height * k;
+    page.drawImage(img, { x: x1 + (bw - w) / 2, y: y1 + (bh - h) / 2, width: w, height: h });
+    return;
+  }
+
+  const traits = sig.traits.filter((t) => t.length);
+  if (!traits.length) return;
+  // 1. Recadrage sur le tracé
+  const { x0, y0, w, h } = cadreTrace(traits);
+  // 2. Échelle pour remplir la case (marge + demi-épaisseur du trait de chaque côté)
+  const iw = bw - 2 * SIGNATURE_MARGE - SIGNATURE_EPAISSEUR;
+  const ih = bh - 2 * SIGNATURE_MARGE - SIGNATURE_EPAISSEUR;
+  const s = Math.min(iw / Math.max(w, 1), ih / Math.max(h, 1));
+  const dw = w * s, dh = h * s;
+  // 3. Chemin vectoriel, origine au coin haut-gauche du tracé
+  const f = (n) => Number(n.toFixed(2));
+  const chemin = traits.map((t) => (t.length === 1
+    ? `M${f(t[0][0] - x0)} ${f(t[0][1] - y0)} l0.01 0`
+    : t.map(([x, y], i) => `${i ? 'L' : 'M'}${f(x - x0)} ${f(y - y0)}`).join(' '))).join(' ');
+  // 4. Centré dans la case ; l'épaisseur est divisée par l'échelle pour rester fixe dans le PDF
+  page.pushOperators(pushGraphicsState(), setLineJoin(LineJoinStyle.Round));
+  page.drawSvgPath(chemin, {
+    x: x1 + (bw - dw) / 2,
+    y: y1 + (bh + dh) / 2,
+    scale: s,
+    borderColor: rgb(...SIGNATURE_COULEUR),
+    borderWidth: SIGNATURE_EPAISSEUR / s,
+    borderLineCap: LineCapStyle.Round,
+  });
+  page.pushOperators(popGraphicsState());
+}
+
 /** Charge en tonnes équivalent CO2. */
 export function calcTeq(fluide, chargeKg) {
   const f = FLUIDES[fluide];
@@ -219,18 +280,12 @@ export async function remplirCerfa(PDFLib, modele, d) {
     else page.node.delete(PDFName.of('Annots'));
   }
 
-  // Images de signature, à droite de la date, dans la case « Date et signature »
-  const placer = async (png, [x1, y1, x2, y2]) => {
-    if (!png) return;
-    const img = await pdf.embedPng(png);
-    const bw = x2 - x1, bh = y2 - y1;
-    const k = Math.min(bw / img.width, bh / img.height);
-    const w = img.width * k, h = img.height * k;
-    page.drawImage(img, { x: x2 - w, y: y1 + (bh - h) / 2, width: w, height: h });
-  };
-  // Cases : Opérateur [127,45,337,63] — Détenteur [345,44,554,63] ; la date occupe la gauche.
-  await placer(d.signatureTechnicien, [180, 45.5, 335, 62.5]);
-  await placer(d.signatureClient, [398, 44.5, 552, 62.5]);
+  // Signatures, à droite de la date, dans la case « Date et signature ».
+  // Le tracé est recadré sur l'encre (aucune marge vide), agrandi pour remplir la case
+  // en gardant ses proportions, centré, avec une petite marge. Il est dessiné en vectoriel
+  // avec une épaisseur fixe : les deux signatures ont donc exactement le même trait.
+  await placerSignature(PDFLib, pdf, page, d.signatureTechnicien, CASE_SIGNATURE_OPERATEUR);
+  await placerSignature(PDFLib, pdf, page, d.signatureClient, CASE_SIGNATURE_DETENTEUR);
 
   pdf.setTitle(`Fiche d'intervention ${d.ficheNo || ''}`.trim());
   pdf.setCreator('FrigoFiche');

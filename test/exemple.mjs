@@ -37,8 +37,8 @@ const cas = {
   ],
   observations: 'Resserrage des raccords et contrôle à la mousse. Brasure du détendeur à reprendre.',
   date: '11/11/2026',
-  signatureTechnicien: lire('test/signature-technicien.png'),
-  signatureClient: lire('test/signature-client.png'),
+  signatureTechnicien: JSON.parse(lire('test/signature-technicien.json')),
+  signatureClient: JSON.parse(lire('test/signature-client.json')),
   signataireClient: 'Marie Dupont',
   qualiteClient: 'Gérante',
 };
