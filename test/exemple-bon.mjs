@@ -25,13 +25,13 @@ const bon = {
   numero: 'BI-2026-0001',
   date: '11/11/2026',
   societe: {
-    raisonSociale: 'Zema Clim',
-    adresse: '8 rue des Artisans\n69007 Lyon',
-    siret: '39402511800032',
+    raisonSociale: 'Clim Services Provence',
+    adresse: '12 avenue du Mistral\n13100 Aix-en-Provence',
+    siret: '12345678900012',
     logo: lire('test/logo.png'),
   },
-  technicien: { nom: 'Karim Dahmani', qualite: 'Technicien frigoriste' },
-  client: { nom: 'Fitness Park Lyon Gerland', adresse: '60 avenue Tony Garnier\n69007 Lyon', contact: 'M. Laurent (responsable du site)' },
+  technicien: { nom: 'Julien Martin', qualite: 'Technicien frigoriste' },
+  client: { nom: 'Salle de sport Exemple', adresse: '5 rue des Lilas\n13090 Aix-en-Provence', contact: 'M. Durand (responsable du site)' },
   natures: ['Dépannage', 'Remplacement de pièce', 'Entretien'],
   natureDetail: 'Ventilateur extérieur hors service (code E7)',
   description,
@@ -47,7 +47,7 @@ const bon = {
   photos: [lire('test/photo-1.jpg'), lire('test/photo-2.jpg')],
   signatureTechnicien: JSON.parse(lire('test/signature-technicien.json')),
   signatureClient: JSON.parse(lire('test/signature-client.json')),
-  signataireClient: 'M. Laurent',
+  signataireClient: 'M. Durand',
   qualiteClient: 'Responsable du site',
 };
 
