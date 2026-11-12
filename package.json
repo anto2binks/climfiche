@@ -2,6 +2,6 @@
   "name": "frigofiche",
   "private": true,
   "type": "module",
-  "scripts": { "exemple": "node test/exemple.mjs", "exemple-bon": "node test/exemple-bon.mjs" },
+  "scripts": { "exemple": "node test/exemple.mjs", "exemple-bon": "node test/exemple-bon.mjs", "test-heures": "node heures/test/calcul.test.mjs" },
   "devDependencies": { "pdf-lib": "1.17.1" }
 }

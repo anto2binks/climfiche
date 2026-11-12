@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MesHeures</title>
+  <meta name="description" content="Saisie des horaires de travail, total à la semaine et au mois, heures supplémentaires à 25 % et 50 %.">
+  <meta name="theme-color" content="#0f6b4f" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="MesHeures">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="entete">
+    <h1>⏱️ MesHeures</h1>
+    <p class="sous-titre" id="entete-taux"></p>
+  </header>
+
+  <main>
+    <!-- ===== JOUR ===== -->
+    <section class="ecran" data-ecran="jour">
+      <div class="navigateur">
+        <button type="button" class="fleche" data-nav="jour" data-pas="-1" aria-label="Jour précédent">‹</button>
+        <label class="titre-nav">
+          <span id="jour-titre"></span>
+          <input type="date" id="jour-date" aria-label="Choisir la date">
+        </label>
+        <button type="button" class="fleche" data-nav="jour" data-pas="1" aria-label="Jour suivant">›</button>
+      </div>
+      <button type="button" class="lien" id="btn-aujourdhui" hidden>↩︎ Revenir à aujourd'hui</button>
+
+      <div class="carte">
+        <div class="champ-heure">
+          <label for="debut">Début</label>
+          <div class="ligne">
+            <input type="time" id="debut">
+            <button type="button" class="bouton secondaire" data-maintenant="debut">Maintenant</button>
+          </div>
+        </div>
+        <div class="champ-heure">
+          <label for="fin">Fin</label>
+          <div class="ligne">
+            <input type="time" id="fin">
+            <button type="button" class="bouton secondaire" data-maintenant="fin">Maintenant</button>
+          </div>
+        </div>
+        <div class="champ-heure">
+          <label for="pause">Pause (minutes)</label>
+          <div class="ligne">
+            <input type="number" id="pause" inputmode="numeric" min="0" step="5" placeholder="0">
+          </div>
+          <div class="pastilles" id="pastilles-pause">
+            <button type="button" data-pause="0">Aucune</button>
+            <button type="button" data-pause="30">30 min</button>
+            <button type="button" data-pause="45">45 min</button>
+            <button type="button" data-pause="60">1 h</button>
+            <button type="button" data-pause="90">1 h 30</button>
+          </div>
+        </div>
+        <p class="aide" id="aide-nuit" hidden>🌙 Fin avant le début : la fin est comptée le lendemain.</p>
+      </div>
+
+      <div class="resultat-jour">
+        <span>Total du jour</span>
+        <strong id="jour-total">0 h</strong>
+        <small id="jour-decimal">0,00 h</small>
+      </div>
+
+      <button type="button" class="bouton danger-texte" id="btn-effacer-jour">🗑️ Effacer cette journée</button>
+
+      <div class="carte semaine-en-cours" id="jour-semaine" role="button" tabindex="0"></div>
+    </section>
+
+    <!-- ===== SEMAINE ===== -->
+    <section class="ecran" data-ecran="semaine" hidden>
+      <div class="navigateur">
+        <button type="button" class="fleche" data-nav="semaine" data-pas="-1" aria-label="Semaine précédente">‹</button>
+        <div class="titre-nav"><span id="semaine-titre"></span></div>
+        <button type="button" class="fleche" data-nav="semaine" data-pas="1" aria-label="Semaine suivante">›</button>
+      </div>
+      <ul class="liste-jours" id="semaine-jours"></ul>
+      <div id="semaine-bilan"></div>
+    </section>
+
+    <!-- ===== MOIS ===== -->
+    <section class="ecran" data-ecran="mois" hidden>
+      <div class="navigateur">
+        <button type="button" class="fleche" data-nav="mois" data-pas="-1" aria-label="Mois précédent">‹</button>
+        <div class="titre-nav"><span id="mois-titre"></span></div>
+        <button type="button" class="fleche" data-nav="mois" data-pas="1" aria-label="Mois suivant">›</button>
+      </div>
+      <div id="mois-contenu"></div>
+    </section>
+
+    <!-- ===== RÉGLAGES ===== -->
+    <section class="ecran" data-ecran="reglages" hidden>
+      <div class="carte">
+        <label for="taux" class="grand-label">Mon taux horaire brut</label>
+        <div class="ligne">
+          <input type="number" id="taux" inputmode="decimal" min="0" step="0.01" placeholder="ex. 12,50">
+          <span class="unite">€ / h</span>
+        </div>
+        <p class="aide">Indiqué sur ta fiche de paie ou ton contrat. Il sert à calculer le salaire brut et les majorations.</p>
+      </div>
+
+      <div class="carte">
+        <h2>Règles de calcul</h2>
+        <ul class="regles">
+          <li>Jusqu'à <strong>35 h</strong> par semaine : taux normal.</li>
+          <li>De la <strong>36<sup>e</sup> à la 43<sup>e</sup> heure</strong> : majoration de <strong>25 %</strong>.</li>
+          <li>Au-delà de <strong>43 h</strong> : majoration de <strong>50 %</strong>.</li>
+          <li>Les semaines vont du lundi au dimanche. Une semaine à cheval sur deux mois compte dans le mois où elle se termine.</li>
+        </ul>
+        <p class="aide">Montants bruts, à titre indicatif : ils ne tiennent pas compte des cotisations, primes ou accords d'entreprise.</p>
+      </div>
+
+      <div class="carte">
+        <h2>Sauvegarde</h2>
+        <p class="aide">Tes horaires restent sur ce téléphone. Exporte-les pour les garder ou changer de téléphone.</p>
+        <button type="button" class="bouton" id="btn-exporter">📤 Exporter mes horaires</button>
+        <button type="button" class="bouton secondaire" id="btn-importer">📥 Importer un fichier</button>
+        <input type="file" id="fichier-import" accept=".json,application/json" hidden>
+        <button type="button" class="bouton danger-texte" id="btn-tout-effacer">Tout effacer</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <nav class="onglets" aria-label="Sections">
+    <button type="button" data-onglet="jour" class="actif"><span aria-hidden="true">🕘</span>Jour</button>
+    <button type="button" data-onglet="semaine"><span aria-hidden="true">📅</span>Semaine</button>
+    <button type="button" data-onglet="mois"><span aria-hidden="true">🗓️</span>Mois</button>
+    <button type="button" data-onglet="reglages"><span aria-hidden="true">⚙️</span>Réglages</button>
+  </nav>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -64,3 +64,7 @@ npm install && npm run exemple
 ## Publication sur GitHub Pages
 
 Dans le dépôt, allez dans **Settings → Pages**. Choisissez *Deploy from a branch*, puis la branche `main` et le dossier `/ (root)`. L'application sera ensuite accessible à l'adresse `https://<utilisateur>.github.io/frigofiche-/`.
+
+## MesHeures (deuxième application)
+
+Le dossier [`heures/`](heures/) contient une application séparée pour saisir ses horaires de travail : total par jour, par semaine et par mois, heures sup à 25 % (36e à 43e heure) et à 50 % (au-delà de 43 h), salaire brut estimé à partir du taux horaire. Voir [`heures/README.md`](heures/README.md).
