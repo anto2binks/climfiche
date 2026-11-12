@@ -1,7 +1,7 @@
 // Service worker : met l'application en cache pour un usage hors ligne.
 // Changer VERSION à chaque publication : c'est ce qui déclenche la mise à jour sur les téléphones.
 // Il ne touche qu'au cache des fichiers, jamais aux données (profil, clients, numérotation).
-const VERSION = 'frigofiche-v8';
+const VERSION = 'frigofiche-v9';
 const FICHIERS = [
   './', 'index.html', 'css/style.css', 'js/app.js', 'js/cerfa.js', 'js/profil.js', 'js/stockage.js', 'js/signature.js',
   'js/bon.js', 'js/bon-pdf.js', 'js/bon-ui.js', 'js/historique.js', 'js/historique-ui.js',

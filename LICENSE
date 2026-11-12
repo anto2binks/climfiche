@@ -1,0 +1,23 @@
+FrigoFiche
+Copyright © 2026 Antoine M.M
+Tous droits réservés.
+
+Ce logiciel (code source, interface, textes, icônes et documentation) est la
+propriété exclusive de son auteur et est protégé par le Code de la propriété
+intellectuelle.
+
+Aucune licence n'est accordée. Sauf autorisation écrite préalable de l'auteur,
+il est interdit de reproduire, copier, modifier, adapter, traduire, distribuer,
+publier, héberger, vendre, louer ou exploiter ce logiciel, en tout ou partie,
+par quelque moyen que ce soit.
+
+La consultation de ce dépôt ou l'utilisation de l'application à titre personnel
+ne confère aucun droit sur le logiciel.
+
+Éléments tiers
+--------------
+Les éléments suivants ne sont pas couverts par la mention ci-dessus et restent
+soumis à leurs propres conditions :
+- pdf-lib 1.17.1 — licence MIT — vendor/pdf-lib-LICENSE.md
+- Formulaire Cerfa n° 15497*04 (cerfa-15497-04.pdf) — document officiel de
+  l'administration française, utilisé tel quel pour être rempli.
