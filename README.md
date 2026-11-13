@@ -63,7 +63,7 @@ npm install && npm run exemple
 
 ## Publication sur GitHub Pages
 
-Dans le dépôt, allez dans **Settings → Pages**. Choisissez *Deploy from a branch*, puis la branche `main` et le dossier `/ (root)`. L'application sera ensuite accessible à l'adresse `https://<utilisateur>.github.io/frigofiche-/`.
+Dans le dépôt, allez dans **Settings → Pages**. Choisissez *Deploy from a branch*, puis la branche `main` et le dossier `/ (root)`. L'application est accessible à l'adresse `https://anto2binks.github.io/climfiche/`.
 
 ## Licence
 
